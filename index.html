@@ -4,7 +4,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
 <header class="top"><div class="wrap"><a class="brand" href="index.html"><img src="icon.png" alt=""><span><b>TABANSA</b><small id="lem"></small></span></a>
-<div class="acts"><span id="dot" class="dot" title="Status realtime"></span><button class="ib" data-theme-toggle aria-label="Ganti tema terang/gelap" title="Ganti tema">&#9680;</button><a class="btn btn-sm" href="admin/login.html">Login admin</a></div></div></header>
+<div class="acts"><button class="ib" data-theme-toggle aria-label="Ganti tema terang/gelap" title="Ganti tema">&#9680;</button><a class="btn btn-sm" href="admin/login.html">Login admin</a></div></div></header>
 <section class="hero"><div class="wrap"><p>Total tabungan seluruh santri</p><h1 id="hSaldo" class="num">Rp 0</h1></div></section>
 <main class="wrap">
 <div class="chips" id="chips"></div>
@@ -19,7 +19,7 @@
 <script src="config.js"></script><script src="common.js"></script>
 <script>
 let S=[],shown=40,muatPeriode;
-$("#lem").textContent=NAMA_LEMBAGA;$("#flt").innerHTML=FILTER_HTML;muatPeriode=initPeriode($("#periode"));
+initNet();$("#lem").textContent=NAMA_LEMBAGA;$("#flt").innerHTML=FILTER_HTML;muatPeriode=initPeriode($("#periode"));
 const chip=(l,v,c)=>`<div class="chip ${c||""}"><span>${l}</span><b>${v}</b></div>`;
 async function load(){const{data,error}=await sb.from("saldo_santri").select("*");
  if(error){$("#empty").hidden=false;$("#empty").textContent="Data belum bisa dimuat: "+error.message;return}
@@ -39,5 +39,5 @@ async function detail(nis){const x=S.find(s=>s.nis===nis);$("#mN").textContent=x
  $("#mL").innerHTML=(data||[]).map(r=>trxRow(r,false)).join("")||'<p class="empty">Belum ada transaksi.</p>'}
 document.addEventListener("click",e=>{const r=e.target.closest("[data-nis]");if(r)detail(r.dataset.nis)});
 $("#mx").onclick=()=>$("#modal").hidden=true;$("#modal").onclick=e=>{if(e.target.id==="modal")e.target.hidden=true};
-load();sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode()}).subscribe(s=>$("#dot").classList.toggle("on",s==="SUBSCRIBED"));
+load();sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode()}).subscribe(setRT);window.onBack=()=>{load();muatPeriode()};
 </script></body></html>

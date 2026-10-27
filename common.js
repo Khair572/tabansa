@@ -1,4 +1,5 @@
 const $=s=>document.querySelector(s);
+let RT="";
 const rp=n=>"Rp "+Number(n||0).toLocaleString("id-ID");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const tgl=d=>d?new Date(d+"T00:00:00").toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}):"-";
@@ -43,3 +44,14 @@ function parseNominal(s){s=String(s||"").toLowerCase().replace(/rp|\s/g,"");if(!
  const m=s.match(/^(\d[\d.,]*)(k|rb|ribu|jt|juta)?$/);if(!m)return NaN;let n=m[1];
  if(m[2]){n=parseFloat(n.replace(",","."))*(/^(k|rb|ribu)$/.test(m[2])?1e3:1e6)}else n=parseFloat(n.replace(/[.,]/g,""));
  return Math.round(n)}
+
+// ---- Indikator online/offline ----
+function netUI(){const n=$("#net");if(!n)return;const off=!navigator.onLine,st=off?"off":RT==="SUBSCRIBED"?"on":"wait";
+ n.className="net "+st;n.querySelector("span").textContent={off:"Offline",on:"Online",wait:"Menyambung"}[st];
+ n.title={off:"Tidak ada koneksi internet",on:"Terhubung ke server (data realtime)",wait:"Menyambungkan ke server..."}[st];
+ const b=$("#offBar");if(b)b.hidden=!off}
+const setRT=s=>{RT=s;netUI()};
+function initNet(){document.querySelector(".acts").insertAdjacentHTML("afterbegin",'<span id="net" class="net wait" role="status" aria-live="polite"><i></i><span>Menyambung</span></span>');
+ document.body.insertAdjacentHTML("beforeend",'<div id="offBar" class="offbar" role="alert" hidden>Anda sedang offline. Perubahan tidak akan tersimpan sampai koneksi kembali.</div>');
+ addEventListener("offline",netUI);addEventListener("online",()=>{netUI();toast("Kembali online");if(window.onBack)window.onBack()});netUI()}
+function perluOnline(){if(navigator.onLine)return true;toast("Anda sedang offline. Coba lagi setelah tersambung.",1);return false}

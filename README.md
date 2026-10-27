@@ -20,3 +20,6 @@ Di form transaksi, ketik `5k`, `10rb`, `1,5jt`, atau `25000`, atau tap tombol +5
 ## Log aktivitas
 Setiap tambah/ubah/hapus santri dan transaksi dicatat otomatis oleh trigger database (siapa, kapan, data lama dan baru). Log hanya bisa dibaca admin, dan tidak bisa diubah atau dihapus (ditolak oleh database). Data sebelum SQL ini dijalankan tidak punya log.
 
+
+## Indikator koneksi
+Di pojok kanan atas halaman publik dan admin ada status **Online** (hijau, terhubung realtime), **Menyambung** (kuning), dan **Offline** (merah). Saat offline muncul pita peringatan, penyimpanan di admin ditahan, dan data dimuat ulang otomatis ketika koneksi kembali.
