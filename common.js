@@ -46,9 +46,9 @@ function parseNominal(s){s=String(s||"").toLowerCase().replace(/rp|\s/g,"");if(!
  return Math.round(n)}
 
 // ---- Indikator online/offline ----
-function netUI(){const n=$("#net");if(!n)return;const off=!navigator.onLine,st=off?"off":RT==="SUBSCRIBED"?"on":"wait";
+function netUI(){const n=$("#net");if(!n)return;const off=!navigator.onLine,srv=["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(RT),st=off||srv?"off":RT==="SUBSCRIBED"?"on":"wait";
  n.className="net "+st;n.querySelector("span").textContent={off:"Offline",on:"Online",wait:"Menyambung"}[st];
- n.title={off:"Tidak ada koneksi internet",on:"Terhubung ke server (data realtime)",wait:"Menyambungkan ke server..."}[st];
+ n.title={off:off?"Tidak ada koneksi internet":"Server tidak terjangkau, mencoba menyambung ulang",on:"Terhubung ke server (data realtime)",wait:"Menyambungkan ke server..."}[st];
  const b=$("#offBar");if(b)b.hidden=!off}
 const setRT=s=>{RT=s;netUI()};
 function initNet(){document.querySelector(".acts").insertAdjacentHTML("afterbegin",'<span id="net" class="net wait" role="status" aria-live="polite"><i></i><span>Menyambung</span></span>');
