@@ -16,7 +16,7 @@
 <div class="only-n" id="cards"></div><p id="empty" class="empty" hidden></p><div style="text-align:center;margin-top:12px"><button id="more" class="btn btn-ghost" hidden>Tampilkan lebih banyak</button></div></section>
 <section class="card"><h2>Transaksi per periode</h2><div id="periode"></div></section>
 <section class="card"><div class="bar"><h2>Log aktivitas admin</h2><input id="lq" class="inp" style="flex:1;min-width:160px" placeholder="Cari admin, nama, NIS..."><select id="la" class="inp"><option value="">Semua aksi</option><option>TAMBAH</option><option>UBAH</option><option>HAPUS</option></select></div>
-<p class="mut" style="margin:0 0 10px;font-size:13px">Setiap perubahan data dicatat otomatis oleh database dan tidak bisa diubah atau dihapus lewat aplikasi ini. Menampilkan 200 catatan terbaru.</p><div id="logList"></div></section>
+<div id="logList"></div></section>
 </main>
 
 <div class="modal" id="mT" hidden><form class="sheet f" id="ft"><button type="button" class="ib x" data-x="mT" aria-label="Tutup">&times;</button><h3>Catat transaksi</h3>
@@ -103,7 +103,7 @@ function detailLog(l){const f=o=>Object.entries(o||{}).filter(([k])=>!SKIP.inclu
  return f(l.aksi==="HAPUS"?l.data_lama:l.data_baru).join("\n")}
 function tampilLog(){const q=$("#lq").value.toLowerCase(),a=$("#la").value;
  const d=LOG.filter(l=>(!a||l.aksi===a)&&((l.admin_email||"")+" "+(l.ringkasan||"")+" "+(l.kunci||"")).toLowerCase().includes(q));
- $("#logList").innerHTML=d.map(l=>`<div class="logrow"><p><span class="pill ${l.aksi==="TAMBAH"?"ok":l.aksi==="HAPUS"?"bad":""}">${l.aksi}</span> <b>${esc(l.ringkasan)}</b></p><small>${new Date(l.waktu).toLocaleString("id-ID")} · oleh ${esc(l.admin_email||"-")}</small><details><summary class="mut">Rincian</summary><pre>${esc(detailLog(l))}</pre></details></div>`).join("")||'<p class="empty">Belum ada aktivitas tercatat.</p>'}
+ $("#logList").innerHTML=d.map(l=>`<div class="logrow"><p><span class="pill ${l.aksi==="TAMBAH"?"ok":l.aksi==="HAPUS"?"bad":""}">${l.aksi}</span> <b>${esc(l.ringkasan).replace(/Rp (\d+)/g,(m,n)=>rp(n))}</b></p><small>${new Date(l.waktu).toLocaleString("id-ID")} · oleh ${esc(l.admin_email||"-")}</small><details><summary class="mut">Rincian</summary><pre>${esc(detailLog(l))}</pre></details></div>`).join("")||'<p class="empty">Belum ada aktivitas tercatat.</p>'}
 
 $("#dlS").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Tgl Masuk","Tgl Keluar","Keterangan","Status","Total Setoran","Total Penarikan","Saldo"],...lihat().map(x=>[x.nis,x.nama,x.alamat,x.tanggal_masuk,x.tanggal_keluar,x.keterangan,x.aktif?"Aktif":"Tidak aktif",x.total_masuk,x.total_keluar,x.saldo])]);
 $("#dlT").onclick=async()=>{const{data,error}=await sb.from("transaksi").select("*,santri(nama)").order("tanggal",{ascending:false}).limit(10000);if(error)return toast(error.message,1);
