@@ -24,8 +24,8 @@ const FILTER_HTML=`<input id="q" class="inp" style="flex:1;min-width:170px" plac
 <select id="fSo" class="inp"><option value="nama">Nama A-Z</option><option value="nis">NIS</option><option value="saldo">Saldo terbesar</option><option value="masuk">Tgl masuk terbaru</option><option value="baru">Terbaru diinput</option></select>`;
 // ---- Transaksi per periode ----
 function initPeriode(el){
- el.innerHTML=`<div class="per" id="pPre"><button class="btn btn-ghost btn-sm" data-p="hari">Hari ini</button><button class="btn btn-ghost btn-sm" data-p="minggu">Minggu ini</button><button class="btn btn-ghost btn-sm" data-p="lalu">Minggu lalu</button><button class="btn btn-ghost btn-sm" data-p="bulan">Bulan ini</button>
- <input type="date" id="pA" class="inp" aria-label="Dari tanggal"><span class="mut">s/d</span><input type="date" id="pB" class="inp" aria-label="Sampai tanggal"></div><p id="pSum" class="mut" style="margin:0 0 10px"></p><div id="pList"></div>`;
+ el.innerHTML=`<div class="pre" id="pPre"><button class="btn btn-ghost btn-sm" data-p="hari">Hari ini</button><button class="btn btn-ghost btn-sm" data-p="minggu">Minggu ini</button><button class="btn btn-ghost btn-sm" data-p="lalu">Minggu lalu</button><button class="btn btn-ghost btn-sm" data-p="bulan">Bulan ini</button>
+ </div><div class="dts"><input type="date" id="pA" class="inp" aria-label="Dari tanggal"><span class="mut">s/d</span><input type="date" id="pB" class="inp" aria-label="Sampai tanggal"></div><p id="pSum" class="mut" style="margin:0 0 10px"></p><div id="pList"></div>`;
  const set=p=>{const n=new Date(),d=new Date(n.getFullYear(),n.getMonth(),n.getDate()),mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));let a=d,b=d;
   if(p==="minggu"){a=mon;b=new Date(mon);b.setDate(mon.getDate()+6)}
   if(p==="lalu"){a=new Date(mon);a.setDate(mon.getDate()-7);b=new Date(mon);b.setDate(mon.getDate()-1)}
