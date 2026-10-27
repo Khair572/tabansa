@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Login · TABANSA</title><link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script></head>
+<body><div class="login"><div class="box">
+<h1>TABANSA</h1><p class="info">Tabungan Santri — masuk sebagai admin</p>
+<form id="f"><label for="e">Email</label><input id="e" type="email" required autocomplete="username">
+<label for="p" style="margin-top:.7rem">Password</label><input id="p" type="password" required autocomplete="current-password">
+<div class="err" id="err" role="alert"></div><button class="btn" style="width:100%">Masuk</button></form>
+</div></div>
+<script src="js/config.js"></script>
+<script>
+sb.auth.getSession().then(({data})=>{if(data.session)location.href="admin.html"});
+document.getElementById("f").onsubmit=async e=>{e.preventDefault();
+ const {error}=await sb.auth.signInWithPassword({email:document.getElementById("e").value,password:document.getElementById("p").value});
+ if(error)document.getElementById("err").textContent="Email atau password salah.";else location.href="admin.html"};
+</script></body></html>
