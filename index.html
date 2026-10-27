@@ -1,17 +1,36 @@
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Login · TABANSA</title><link rel="stylesheet" href="css/style.css">
+<title>TABANSA · Tabungan Santri</title><link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script></head>
-<body><div class="login"><div class="box">
-<h1>TABANSA</h1><p class="info">Tabungan Santri — masuk sebagai admin</p>
-<form id="f"><label for="e">Email</label><input id="e" type="email" required autocomplete="username">
-<label for="p" style="margin-top:.7rem">Password</label><input id="p" type="password" required autocomplete="current-password">
-<div class="err" id="err" role="alert"></div><button class="btn" style="width:100%">Masuk</button></form>
-</div></div>
+<body>
+<header><h1>TABANSA</h1><a href="login.html" class="btn sm alt" style="text-decoration:none;color:#1b1b1b;padding:.35rem .8rem;border-radius:6px;background:var(--gold)">Login admin</a></header>
+<main>
+<div class="cards" id="cards"></div>
+<div class="box"><div class="row"><div><label for="q">Cari NIS atau nama santri</label><input id="q" placeholder="Ketik NIS atau nama"></div></div>
+<div class="tw" id="list" style="margin-top:.6rem"></div></div>
+<div class="box" id="detail" hidden></div>
+</main>
 <script src="js/config.js"></script>
 <script>
-sb.auth.getSession().then(({data})=>{if(data.session)location.href="admin.html"});
-document.getElementById("f").onsubmit=async e=>{e.preventDefault();
- const {error}=await sb.auth.signInWithPassword({email:document.getElementById("e").value,password:document.getElementById("p").value});
- if(error)document.getElementById("err").textContent="Email atau password salah.";else location.href="admin.html"};
+const $=s=>document.querySelector(s),rp=n=>"Rp "+Number(n||0).toLocaleString("id-ID");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tgl=d=>new Date(d).toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"});
+let semua=[];
+(async()=>{const{data,error}=await sb.from("saldo_santri").select("*").order("nama");
+ if(error){$("#list").innerHTML='<p class="empty">Data belum bisa dimuat: '+esc(error.message)+'</p>';return}
+ semua=data||[];const sum=k=>semua.reduce((a,x)=>a+Number(x[k]),0);
+ $("#cards").innerHTML=[["Total saldo",rp(sum("saldo"))],["Total setoran",rp(sum("total_masuk"))],["Total penarikan",rp(sum("total_keluar"))],["Jumlah santri",semua.length]]
+ .map(([l,v])=>`<div class="box"><span>${l}</span><b>${v}</b></div>`).join("");tampil()})();
+function tampil(){const q=$("#q").value.toLowerCase();
+ const d=semua.filter(x=>x.nis.toLowerCase().includes(q)||x.nama.toLowerCase().includes(q));
+ $("#list").innerHTML=d.length?`<table><tr><th>NIS</th><th>Nama</th><th>Kelas</th><th>Saldo</th><th></th></tr>`+
+ d.map(x=>`<tr><td>${esc(x.nis)}</td><td>${esc(x.nama)}</td><td>${esc(x.kelas)}</td><td>${rp(x.saldo)}</td><td><button class="btn sm" onclick="lihat('${esc(x.nis)}')">Riwayat</button></td></tr>`).join("")+"</table>"
+ :'<p class="empty">Santri tidak ditemukan.</p>'}
+$("#q").oninput=tampil;
+async function lihat(nis){const s=semua.find(x=>x.nis===nis);
+ const{data:t}=await sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false});
+ $("#detail").hidden=false;
+ $("#detail").innerHTML=`<h3>${esc(s.nama)} — NIS ${esc(s.nis)}</h3><p class="info">Setoran ${rp(s.total_masuk)} · Penarikan ${rp(s.total_keluar)} · <b>Saldo ${rp(s.saldo)}</b></p><div class="tw">`+
+ ((t||[]).length?`<table><tr><th>Tanggal</th><th>Jenis</th><th>Jumlah</th><th>Keterangan</th></tr>`+t.map(r=>`<tr><td>${tgl(r.tanggal)}</td><td class="${r.jenis==="masuk"?"in":"out"}">${r.jenis==="masuk"?"Setoran":"Penarikan"}</td><td>${rp(r.jumlah)}</td><td>${esc(r.keterangan)}</td></tr>`).join("")+"</table>":'<p class="empty">Belum ada transaksi.</p>')+"</div>";
+ $("#detail").scrollIntoView({behavior:"smooth"})}
 </script></body></html>

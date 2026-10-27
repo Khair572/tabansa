@@ -1,13 +1,11 @@
 # TABANSA — Tabungan Santri
 
-Web pencatatan setoran dan penarikan tabungan santri berdasarkan NIS. Frontend statis (HTML/CSS/JS) + Supabase (database & login).
+Frontend statis (HTML/CSS/JS) + Supabase. Semua orang bisa MELIHAT data di `index.html`; hanya admin yang login (`login.html` → `admin.html`) yang bisa MENGUBAH data.
 
 ## Cara pasang
-1. Buat project di https://supabase.com
-2. SQL Editor → tempel isi `supabase/schema.sql` → Run.
-3. Authentication → Users → Add user (email + password admin). Matikan "Allow new users to sign up" di Authentication → Sign In / Providers agar orang lain tidak bisa mendaftar.
-4. Project Settings → API → URL dan publishable key sudah terisi di `js/config.js`.
-5. Upload semua file ke GitHub → Settings → Pages → Deploy from branch (main, root).
-6. Buka alamat GitHub Pages, login dengan akun admin.
+1. Supabase → SQL Editor → tempel isi `supabase/schema.sql` → Run.
+2. Authentication → Users → Add user (email + password admin). Matikan pendaftaran publik: Authentication → Sign In / Providers → matikan "Allow new users to sign up".
+3. `js/config.js` sudah berisi URL dan publishable key project.
+4. Upload semua file ke GitHub → Settings → Pages → Deploy from branch (main, root).
 
-Catatan: anon key memang publik; data tetap aman karena Row Level Security hanya mengizinkan admin yang login.
+Keamanan ditegakkan oleh Row Level Security di database, bukan oleh tampilan web: pengunjung hanya punya izin baca.
