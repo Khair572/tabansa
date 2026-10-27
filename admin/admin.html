@@ -40,10 +40,11 @@
 
 <script src="../config.js"></script><script src="../common.js"></script>
 <script>
+initNet();
 let S=[],shown=40,edit=null,rNis=null,jenis="masuk",muatPeriode;
 (async()=>{const{data:{session}}=await sb.auth.getSession();if(!session){location.href="login.html";return}
  $("#who").textContent=session.user.email;$("#tTgl").value=hariIni();$("#flt").innerHTML=FILTER_HTML;
- ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).subscribe()})();
+ ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).subscribe(setRT);window.onBack=()=>{load();muatPeriode();muatLog()}})();
 sb.auth.onAuthStateChange(e=>{if(e==="SIGNED_OUT")location.href="login.html"});
 $("#out").onclick=()=>sb.auth.signOut();
 document.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>$("#"+b.dataset.x).hidden=true);
@@ -73,17 +74,17 @@ function prev(){const v=parseNominal($("#tJml").value);$("#tPrev").innerHTML=isN
 $("#tJml").oninput=prev;
 $("#tQ").onclick=e=>{const b=e.target.closest("[data-n]");if(!b)return;const n=Number(b.dataset.n);$("#tJml").value=n?(parseNominal($("#tJml").value)||0)+n:"";prev();$("#tJml").focus()};
 $("#cepat").onclick=()=>catat("","masuk");
-$("#ft").onsubmit=async e=>{e.preventDefault();const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=parseNominal($("#tJml").value);if(!jumlah||isNaN(jumlah)||jumlah<=0)return toast("Jumlah tidak valid. Contoh: 10k atau 25000",1);
+$("#ft").onsubmit=async e=>{e.preventDefault();if(!perluOnline())return;const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=parseNominal($("#tJml").value);if(!jumlah||isNaN(jumlah)||jumlah<=0)return toast("Jumlah tidak valid. Contoh: 10k atau 25000",1);
  if(jenis==="keluar"&&jumlah>Number(x.saldo))return toast("Saldo tidak cukup. Saldo saat ini "+rp(x.saldo),1);
  $("#tBtn").disabled=true;const{error}=await sb.from("transaksi").insert({nis:x.nis,jenis,jumlah,tanggal:$("#tTgl").value,keterangan:$("#tKet").value.trim()||null});$("#tBtn").disabled=false;
  if(error)return toast(error.message,1);$("#mT").hidden=true;toast((jenis==="masuk"?"Setoran ":"Penarikan ")+rp(jumlah)+" untuk "+x.nama+" tersimpan.");load();muatPeriode()};
 
 function bukaS(x){edit=x?x.nis:null;$("#sT").textContent=x?"Edit data santri":"Tambah santri";$("#sNis").value=x?.nis||"";$("#sNama").value=x?.nama||"";$("#sAl").value=x?.alamat||"";$("#sM").value=x?.tanggal_masuk||"";$("#sK").value=x?.tanggal_keluar||"";$("#sKet").value=x?.keterangan||"";$("#sA").checked=x?x.aktif:true;$("#mS").hidden=false;$("#sNis").focus()}
 $("#add").onclick=()=>bukaS();const ubah=nis=>bukaS(S.find(s=>s.nis===nis));
-$("#fs").onsubmit=async e=>{e.preventDefault();const v={nis:$("#sNis").value.trim(),nama:$("#sNama").value.trim(),alamat:$("#sAl").value.trim()||null,tanggal_masuk:$("#sM").value||null,tanggal_keluar:$("#sK").value||null,keterangan:$("#sKet").value.trim()||null,aktif:$("#sA").checked};
+$("#fs").onsubmit=async e=>{e.preventDefault();if(!perluOnline())return;const v={nis:$("#sNis").value.trim(),nama:$("#sNama").value.trim(),alamat:$("#sAl").value.trim()||null,tanggal_masuk:$("#sM").value||null,tanggal_keluar:$("#sK").value||null,keterangan:$("#sKet").value.trim()||null,aktif:$("#sA").checked};
  const{error}=edit?await sb.from("santri").update(v).eq("nis",edit):await sb.from("santri").insert(v);
  if(error)return toast(error.code==="23505"?"NIS sudah terdaftar.":error.message,1);$("#mS").hidden=true;toast("Data santri tersimpan.");load()};
-async function hapusS(nis){const x=S.find(s=>s.nis===nis);if(!confirm(`Hapus ${x.nama} (NIS ${nis}) beserta SEMUA riwayat tabungannya? Tidak bisa dibatalkan.`))return;
+async function hapusS(nis){if(!perluOnline())return;const x=S.find(s=>s.nis===nis);if(!confirm(`Hapus ${x.nama} (NIS ${nis}) beserta SEMUA riwayat tabungannya? Tidak bisa dibatalkan.`))return;
  const{error}=await sb.from("santri").delete().eq("nis",nis);if(error)return toast(error.message,1);toast("Santri dihapus.");load();muatPeriode()}
 
 async function riwayat(nis){rNis=nis;const x=S.find(s=>s.nis===nis);$("#rN").textContent=x.nama;$("#rI").textContent="NIS "+x.nis+(x.alamat?" · "+x.alamat:"");
@@ -91,7 +92,7 @@ async function riwayat(nis){rNis=nis;const x=S.find(s=>s.nis===nis);$("#rN").tex
  $("#rL").innerHTML='<p class="empty">Memuat...</p>';$("#mR").hidden=false;
  const{data}=await sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false});
  $("#rL").innerHTML=(data||[]).map(r=>`<div class="trx"><div><p>${jenisTxt(r.jenis)} · ${tgl(r.tanggal)}</p><small>${esc(r.keterangan||"-")}${r.admin_email?" · oleh "+esc(r.admin_email):""}</small></div><div class="v">${jml(r)} <button class="btn btn-bad btn-sm" onclick="hapusT('${r.id}')">Hapus</button></div></div>`).join("")||'<p class="empty">Belum ada transaksi.</p>'}
-async function hapusT(id){if(!confirm("Hapus transaksi ini? Saldo akan dihitung ulang."))return;const{error}=await sb.from("transaksi").delete().eq("id",id);if(error)return toast(error.message,1);toast("Transaksi dihapus.");await load();muatPeriode();riwayat(rNis)}
+async function hapusT(id){if(!perluOnline())return;if(!confirm("Hapus transaksi ini? Saldo akan dihitung ulang."))return;const{error}=await sb.from("transaksi").delete().eq("id",id);if(error)return toast(error.message,1);toast("Transaksi dihapus.");await load();muatPeriode();riwayat(rNis)}
 
 let LOG=[];
 async function muatLog(){const{data,error}=await sb.from("log_aktivitas").select("*").order("id",{ascending:false}).limit(200);
