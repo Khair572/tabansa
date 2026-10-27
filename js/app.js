@@ -4,7 +4,7 @@ const tgl=d=>new Date(d).toLocaleDateString("id-ID",{day:"2-digit",month:"short"
 const today=()=>new Date().toISOString().slice(0,10);
 
 (async()=>{const{data:{session}}=await sb.auth.getSession();
- if(!session){location.href="index.html";return}
+ if(!session){location.href="login.html";return}
  $("#user").textContent=session.user.email;$("#t_tgl").value=today();show("dash")})();
 $("#logout").onclick=async()=>{await sb.auth.signOut();location.href="index.html"};
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.t));
