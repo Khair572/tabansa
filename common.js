@@ -37,3 +37,9 @@ function initPeriode(el){
   $("#pSum").innerHTML=`${data.length} transaksi &middot; setoran <b class="in">${rp(m)}</b> &middot; penarikan <b class="out">${rp(k)}</b>`;
   $("#pList").innerHTML=data.map(r=>trxRow(r,true)).join("")||'<p class="empty">Tidak ada transaksi pada periode ini.</p>'}
  el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>set(b.dataset.p));$("#pA").onchange=muat;$("#pB").onchange=muat;set("minggu");return muat}
+
+// "5k", "10rb", "1,5jt", "25.000", "Rp 25000" -> angka rupiah (NaN jika tidak valid)
+function parseNominal(s){s=String(s||"").toLowerCase().replace(/rp|\s/g,"");if(!s)return 0;
+ const m=s.match(/^(\d[\d.,]*)(k|rb|ribu|jt|juta)?$/);if(!m)return NaN;let n=m[1];
+ if(m[2]){n=parseFloat(n.replace(",","."))*(/^(k|rb|ribu)$/.test(m[2])?1e3:1e6)}else n=parseFloat(n.replace(/[.,]/g,""));
+ return Math.round(n)}
