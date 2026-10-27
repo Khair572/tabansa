@@ -39,8 +39,19 @@ end $$ language plpgsql;
 drop trigger if exists trg_cek_saldo on transaksi;
 create trigger trg_cek_saldo before insert on transaksi for each row execute function cek_saldo();
 
--- Keamanan: hanya admin yang login yang bisa akses
+-- Keamanan: semua orang boleh MELIHAT, hanya admin (login) yang boleh MENGUBAH
 alter table santri enable row level security;
 alter table transaksi enable row level security;
-create policy "admin santri" on santri for all to authenticated using (true) with check (true);
-create policy "admin transaksi" on transaksi for all to authenticated using (true) with check (true);
+drop policy if exists "admin santri" on santri;
+drop policy if exists "admin transaksi" on transaksi;
+drop policy if exists "publik baca santri" on santri;
+drop policy if exists "publik baca transaksi" on transaksi;
+drop policy if exists "admin tulis santri" on santri;
+drop policy if exists "admin tulis transaksi" on transaksi;
+create policy "publik baca santri" on santri for select to anon, authenticated using (true);
+create policy "publik baca transaksi" on transaksi for select to anon, authenticated using (true);
+create policy "admin tulis santri" on santri for all to authenticated using (true) with check (true);
+create policy "admin tulis transaksi" on transaksi for all to authenticated using (true) with check (true);
+grant select on santri, transaksi, saldo_santri to anon;
+grant select, insert, update, delete on santri, transaksi to authenticated;
+grant select on saldo_santri to authenticated;
