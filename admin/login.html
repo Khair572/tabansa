@@ -5,13 +5,14 @@
 <body><div class="login"><div class="card">
 <img src="icon.png" alt=""><h1 style="margin:12px 0 2px;font-size:26px">Masuk Admin</h1><p class="mut" style="margin:0 0 18px">Kelola tabungan santri TABANSA.</p>
 <form id="f" class="f"><div><label for="e">Email</label><input id="e" type="email" class="inp" required autocomplete="username"></div>
-<div><label for="p">Kata sandi</label><input id="p" type="password" class="inp" required autocomplete="current-password"></div>
+<div><label for="p">Kata sandi</label><div class="pw"><input id="p" type="password" class="inp" required autocomplete="current-password"><button type="button" id="eye" class="btn btn-ghost btn-sm" aria-pressed="false" aria-label="Tampilkan kata sandi">Lihat</button></div></div>
 <p id="err" role="alert" class="out" style="margin:0" hidden></p><button id="b" class="btn" style="padding:11px">Masuk</button></form>
 <p style="text-align:center;margin:16px 0 0;font-size:13px"><a href="../index.html" class="mut">&larr; Kembali ke halaman TABANSA</a></p>
 </div></div>
 <script src="../config.js"></script>
 <script>
 sb.auth.getSession().then(({data})=>{if(data.session)location.href="admin.html"});
+document.getElementById("eye").onclick=function(){const p=document.getElementById("p"),show=p.type==="password";p.type=show?"text":"password";this.textContent=show?"Sembunyi":"Lihat";this.setAttribute("aria-pressed",show);this.setAttribute("aria-label",show?"Sembunyikan kata sandi":"Tampilkan kata sandi");p.focus()};
 document.getElementById("f").onsubmit=async e=>{e.preventDefault();const b=document.getElementById("b"),er=document.getElementById("err");er.hidden=true;b.disabled=true;b.textContent="Memproses...";
  const{error}=await sb.auth.signInWithPassword({email:document.getElementById("e").value,password:document.getElementById("p").value});
  if(error){er.textContent="Email atau kata sandi salah.";er.hidden=false;b.disabled=false;b.textContent="Masuk"}else location.href="admin.html"};

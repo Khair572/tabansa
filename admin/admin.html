@@ -12,16 +12,19 @@
 <button id="add" class="btn btn-sm">+ Tambah santri</button><button id="cepat" class="btn btn-ok btn-sm">Catat cepat (NIS)</button>
 <button id="dlS" class="btn btn-ghost btn-sm">CSV saldo</button><button id="dlT" class="btn btn-ghost btn-sm">CSV transaksi</button></div>
 <div class="bar" id="flt"></div>
-<div class="tw"><table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Alamat</th><th>Tgl Masuk</th><th>Tgl Keluar</th><th>Ket</th><th>Status</th><th class="r">Saldo</th><th>Aksi</th></tr></thead><tbody id="tb"></tbody></table></div>
-<p id="empty" class="empty" hidden></p><div style="text-align:center;margin-top:12px"><button id="more" class="btn btn-ghost" hidden>Tampilkan lebih banyak</button></div></section>
+<div class="tw only-w"><table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Alamat</th><th>Tgl Masuk</th><th>Tgl Keluar</th><th>Ket</th><th>Status</th><th class="r">Saldo</th><th>Aksi</th></tr></thead><tbody id="tb"></tbody></table></div>
+<div class="only-n" id="cards"></div><p id="empty" class="empty" hidden></p><div style="text-align:center;margin-top:12px"><button id="more" class="btn btn-ghost" hidden>Tampilkan lebih banyak</button></div></section>
 <section class="card"><h2>Transaksi per periode</h2><div id="periode"></div></section>
+<section class="card"><div class="bar"><h2>Log aktivitas admin</h2><input id="lq" class="inp" style="flex:1;min-width:160px" placeholder="Cari admin, nama, NIS..."><select id="la" class="inp"><option value="">Semua aksi</option><option>TAMBAH</option><option>UBAH</option><option>HAPUS</option></select></div>
+<p class="mut" style="margin:0 0 10px;font-size:13px">Setiap perubahan data dicatat otomatis oleh database dan tidak bisa diubah atau dihapus lewat aplikasi ini. Menampilkan 200 catatan terbaru.</p><div id="logList"></div></section>
 </main>
 
 <div class="modal" id="mT" hidden><form class="sheet f" id="ft"><button type="button" class="ib x" data-x="mT" aria-label="Tutup">&times;</button><h3>Catat transaksi</h3>
 <div><label for="tNis">Santri (ketik NIS atau nama)</label><input id="tNis" class="inp" list="dl" required autocomplete="off" placeholder="mis. 12345"><datalist id="dl"></datalist></div>
 <p id="tInfo" class="mut" style="margin:0">Pilih santri untuk melihat saldo.</p>
 <div class="seg" id="seg"><button type="button" data-j="masuk" class="on">Setoran (masuk)</button><button type="button" data-j="keluar">Penarikan (keluar)</button></div>
-<div class="g2"><div><label for="tJml">Jumlah (Rp)</label><input id="tJml" type="number" min="1" step="1" class="inp" required></div><div><label for="tTgl">Tanggal</label><input id="tTgl" type="date" class="inp" required></div></div>
+<div><label for="tJml">Jumlah (ketik 5k, 10rb, 1,5jt, atau 25000)</label><input id="tJml" class="inp" inputmode="decimal" required autocomplete="off" placeholder="mis. 10k"><div id="tPrev" class="mut" style="font-size:13px;margin-top:4px">Rp 0</div><div class="q" id="tQ"></div></div>
+<div><label for="tTgl">Tanggal</label><input id="tTgl" type="date" class="inp" required></div>
 <div><label for="tKet">Keterangan</label><input id="tKet" class="inp" placeholder="Opsional"></div>
 <button class="btn" id="tBtn" style="padding:11px">Simpan transaksi</button></form></div>
 
@@ -40,7 +43,7 @@
 let S=[],shown=40,edit=null,rNis=null,jenis="masuk",muatPeriode;
 (async()=>{const{data:{session}}=await sb.auth.getSession();if(!session){location.href="login.html";return}
  $("#who").textContent=session.user.email;$("#tTgl").value=hariIni();$("#flt").innerHTML=FILTER_HTML;
- ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load()})();
+ ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).subscribe()})();
 sb.auth.onAuthStateChange(e=>{if(e==="SIGNED_OUT")location.href="login.html"});
 $("#out").onclick=()=>sb.auth.signOut();
 document.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>$("#"+b.dataset.x).hidden=true);
@@ -51,9 +54,11 @@ async function load(){const{data,error}=await sb.from("saldo_santri").select("*"
  $("#chips").innerHTML=chip("Total santri",S.length)+chip("Santri aktif",S.filter(x=>x.aktif).length)+chip("Total setoran",rp(sum("total_masuk")),"in")+chip("Total penarikan",rp(sum("total_keluar")),"out");
  $("#dl").innerHTML=S.map(x=>`<option value="${esc(x.nis)}">${esc(x.nama)}</option>`).join("");render();cekNis()}
 const lihat=()=>filterSantri(S,$("#q").value,$("#fSt").value,$("#fSa").value,$("#fSo").value);
-function render(){const d=lihat();$("#empty").hidden=d.length>0;$("#empty").textContent=S.length?"Tidak ada santri yang cocok.":'Belum ada santri. Klik "Tambah santri" untuk memulai.';$("#more").hidden=d.length<=shown;
- $("#tb").innerHTML=d.slice(0,shown).map((x,i)=>`<tr><td class="mut">${i+1}</td><td class="nw">${esc(x.nis)}</td><td class="nw"><span class="av">${inisial(x.nama)}</span><b>${esc(x.nama)}</b></td><td>${esc(x.alamat||"-")}</td><td class="nw">${tgl(x.tanggal_masuk)}</td><td class="nw">${tgl(x.tanggal_keluar)}</td><td>${esc(x.keterangan||"-")}</td><td>${statusPill(x)}</td><td class="r nw"><b>${rp(x.saldo)}</b></td>
- <td class="nw"><button class="btn btn-ok btn-sm" onclick="catat('${esc(x.nis)}','masuk')">Setor</button> <button class="btn btn-bad btn-sm" onclick="catat('${esc(x.nis)}','keluar')">Tarik</button> <button class="btn btn-ghost btn-sm" onclick="riwayat('${esc(x.nis)}')">Riwayat</button> <button class="btn btn-ghost btn-sm" onclick="ubah('${esc(x.nis)}')">Edit</button> <button class="btn btn-bad btn-sm" onclick="hapusS('${esc(x.nis)}')">Hapus</button></td></tr>`).join("")}
+const aksi=x=>{const n=esc(x.nis);return `<button class="btn btn-ok btn-sm" data-a="setor" data-nis="${n}">Setor</button> <button class="btn btn-bad btn-sm" data-a="tarik" data-nis="${n}">Tarik</button> <button class="btn btn-ghost btn-sm" data-a="riwayat" data-nis="${n}">Riwayat</button> <button class="btn btn-ghost btn-sm" data-a="ubah" data-nis="${n}">Edit</button> <button class="btn btn-bad btn-sm" data-a="hapus" data-nis="${n}">Hapus</button>`};
+function render(){const d=lihat(),v=d.slice(0,shown);$("#empty").hidden=d.length>0;$("#empty").textContent=S.length?"Tidak ada santri yang cocok.":'Belum ada santri. Klik "Tambah santri" untuk memulai.';$("#more").hidden=d.length<=shown;
+ $("#tb").innerHTML=v.map((x,i)=>`<tr><td class="mut">${i+1}</td><td class="nw">${esc(x.nis)}</td><td class="nw"><span class="av">${inisial(x.nama)}</span><b>${esc(x.nama)}</b></td><td>${esc(x.alamat||"-")}</td><td class="nw">${tgl(x.tanggal_masuk)}</td><td class="nw">${tgl(x.tanggal_keluar)}</td><td>${esc(x.keterangan||"-")}</td><td>${statusPill(x)}</td><td class="r nw"><b>${rp(x.saldo)}</b></td><td class="nw">${aksi(x)}</td></tr>`).join("");
+ $("#cards").innerHTML=v.map(x=>`<div class="scard"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>${esc(x.nama)}</b><br><small class="mut">NIS ${esc(x.nis)}${x.alamat?" · "+esc(x.alamat):""}</small></div>${statusPill(x)}</div><div class="num">${rp(x.saldo)}</div><div class="acts-row">${aksi(x)}</div></div>`).join("")}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;const n=b.dataset.nis;({setor:()=>catat(n,"masuk"),tarik:()=>catat(n,"keluar"),riwayat:()=>riwayat(n),ubah:()=>ubah(n),hapus:()=>hapusS(n)})[b.dataset.a]()});
 $("#more").onclick=()=>{shown+=40;render()};
 
 function setJ(j){jenis=j;document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.j===j))}
@@ -61,9 +66,14 @@ document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>setJ(b.dataset
 function cekNis(){const v=$("#tNis").value.trim().toLowerCase();const x=S.find(s=>s.nis.toLowerCase()===v)||(v?S.filter(s=>s.nama.toLowerCase()===v)[0]:null);
  $("#tInfo").innerHTML=!v?"Pilih santri untuk melihat saldo.":x?`<b style="color:var(--ink)">${esc(x.nama)}</b> · NIS ${esc(x.nis)} · saldo <b>${rp(x.saldo)}</b>`:'<span class="out">Santri tidak ditemukan.</span>';return x}
 $("#tNis").oninput=cekNis;
-function catat(nis,j){$("#tNis").value=nis||"";setJ(j||"masuk");$("#tJml").value="";$("#tKet").value="";cekNis();$("#mT").hidden=false;($("#tNis").value?$("#tJml"):$("#tNis")).focus()}
+function catat(nis,j){$("#tNis").value=nis||"";setJ(j||"masuk");$("#tJml").value="";$("#tKet").value="";prev();cekNis();$("#mT").hidden=false;($("#tNis").value?$("#tJml"):$("#tNis")).focus()}
+const lab=n=>n>=1e6?n/1e6+"jt":n/1e3+"k";
+$("#tQ").innerHTML=[5e3,1e4,2e4,5e4,1e5,2e5,5e5,1e6].map(n=>`<button type="button" class="btn btn-ghost btn-sm" data-n="${n}">+${lab(n)}</button>`).join("")+'<button type="button" class="btn btn-bad btn-sm" data-n="0">Kosongkan</button>';
+function prev(){const v=parseNominal($("#tJml").value);$("#tPrev").innerHTML=isNaN(v)?'<span class="out">Format tidak dikenali. Contoh: 10k, 1,5jt, 25000</span>':rp(v)}
+$("#tJml").oninput=prev;
+$("#tQ").onclick=e=>{const b=e.target.closest("[data-n]");if(!b)return;const n=Number(b.dataset.n);$("#tJml").value=n?(parseNominal($("#tJml").value)||0)+n:"";prev();$("#tJml").focus()};
 $("#cepat").onclick=()=>catat("","masuk");
-$("#ft").onsubmit=async e=>{e.preventDefault();const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=Number($("#tJml").value);
+$("#ft").onsubmit=async e=>{e.preventDefault();const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=parseNominal($("#tJml").value);if(!jumlah||isNaN(jumlah)||jumlah<=0)return toast("Jumlah tidak valid. Contoh: 10k atau 25000",1);
  if(jenis==="keluar"&&jumlah>Number(x.saldo))return toast("Saldo tidak cukup. Saldo saat ini "+rp(x.saldo),1);
  $("#tBtn").disabled=true;const{error}=await sb.from("transaksi").insert({nis:x.nis,jenis,jumlah,tanggal:$("#tTgl").value,keterangan:$("#tKet").value.trim()||null});$("#tBtn").disabled=false;
  if(error)return toast(error.message,1);$("#mT").hidden=true;toast((jenis==="masuk"?"Setoran ":"Penarikan ")+rp(jumlah)+" untuk "+x.nama+" tersimpan.");load();muatPeriode()};
@@ -82,6 +92,17 @@ async function riwayat(nis){rNis=nis;const x=S.find(s=>s.nis===nis);$("#rN").tex
  const{data}=await sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false});
  $("#rL").innerHTML=(data||[]).map(r=>`<div class="trx"><div><p>${jenisTxt(r.jenis)} · ${tgl(r.tanggal)}</p><small>${esc(r.keterangan||"-")}${r.admin_email?" · oleh "+esc(r.admin_email):""}</small></div><div class="v">${jml(r)} <button class="btn btn-bad btn-sm" onclick="hapusT('${r.id}')">Hapus</button></div></div>`).join("")||'<p class="empty">Belum ada transaksi.</p>'}
 async function hapusT(id){if(!confirm("Hapus transaksi ini? Saldo akan dihitung ulang."))return;const{error}=await sb.from("transaksi").delete().eq("id",id);if(error)return toast(error.message,1);toast("Transaksi dihapus.");await load();muatPeriode();riwayat(rNis)}
+
+let LOG=[];
+async function muatLog(){const{data,error}=await sb.from("log_aktivitas").select("*").order("id",{ascending:false}).limit(200);
+ if(error){$("#logList").innerHTML='<p class="empty">Log belum bisa dimuat: '+esc(error.message)+' (jalankan ulang supabase-setup.sql)</p>';return}LOG=data||[];tampilLog()}
+const SKIP=["id","created_at","admin_email"];
+function detailLog(l){const f=o=>Object.entries(o||{}).filter(([k])=>!SKIP.includes(k)).map(([k,v])=>k+": "+(v??"-"));
+ if(l.aksi==="UBAH"){const L=l.data_lama||{},B=l.data_baru||{};return Object.keys(B).filter(k=>!SKIP.includes(k)&&JSON.stringify(L[k])!==JSON.stringify(B[k])).map(k=>k+": "+(L[k]??"-")+" → "+(B[k]??"-")).join("\n")||"Tidak ada perubahan nilai"}
+ return f(l.aksi==="HAPUS"?l.data_lama:l.data_baru).join("\n")}
+function tampilLog(){const q=$("#lq").value.toLowerCase(),a=$("#la").value;
+ const d=LOG.filter(l=>(!a||l.aksi===a)&&((l.admin_email||"")+" "+(l.ringkasan||"")+" "+(l.kunci||"")).toLowerCase().includes(q));
+ $("#logList").innerHTML=d.map(l=>`<div class="logrow"><p><span class="pill ${l.aksi==="TAMBAH"?"ok":l.aksi==="HAPUS"?"bad":""}">${l.aksi}</span> <b>${esc(l.ringkasan)}</b></p><small>${new Date(l.waktu).toLocaleString("id-ID")} · oleh ${esc(l.admin_email||"-")}</small><details><summary class="mut">Rincian</summary><pre>${esc(detailLog(l))}</pre></details></div>`).join("")||'<p class="empty">Belum ada aktivitas tercatat.</p>'}
 
 $("#dlS").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Tgl Masuk","Tgl Keluar","Keterangan","Status","Total Setoran","Total Penarikan","Saldo"],...lihat().map(x=>[x.nis,x.nama,x.alamat,x.tanggal_masuk,x.tanggal_keluar,x.keterangan,x.aktif?"Aktif":"Tidak aktif",x.total_masuk,x.total_keluar,x.saldo])]);
 $("#dlT").onclick=async()=>{const{data,error}=await sb.from("transaksi").select("*,santri(nama)").order("tanggal",{ascending:false}).limit(10000);if(error)return toast(error.message,1);
