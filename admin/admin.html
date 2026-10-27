@@ -107,4 +107,5 @@ function tampilLog(){const q=$("#lq").value.toLowerCase(),a=$("#la").value;
 $("#dlS").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Tgl Masuk","Tgl Keluar","Keterangan","Status","Total Setoran","Total Penarikan","Saldo"],...lihat().map(x=>[x.nis,x.nama,x.alamat,x.tanggal_masuk,x.tanggal_keluar,x.keterangan,x.aktif?"Aktif":"Tidak aktif",x.total_masuk,x.total_keluar,x.saldo])]);
 $("#dlT").onclick=async()=>{const{data,error}=await sb.from("transaksi").select("*,santri(nama)").order("tanggal",{ascending:false}).limit(10000);if(error)return toast(error.message,1);
  csv("tabansa-transaksi.csv",[["Tanggal","NIS","Nama","Jenis","Jumlah","Keterangan","Admin"],...data.map(r=>[r.tanggal,r.nis,r.santri?.nama,r.jenis==="masuk"?"Setoran":"Penarikan",r.jumlah,r.keterangan,r.admin_email])])};
+
 </script></body></html>
