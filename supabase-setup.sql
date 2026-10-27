@@ -5,8 +5,10 @@ create table if not exists public.santri (
   nama text not null,
   created_at timestamptz default now()
 );
-alter table public.santri add column if not exists kelas text;
 alter table public.santri add column if not exists alamat text;
+alter table public.santri add column if not exists tanggal_masuk date;
+alter table public.santri add column if not exists tanggal_keluar date;
+alter table public.santri add column if not exists keterangan text;
 alter table public.santri add column if not exists aktif boolean not null default true;
 
 create table if not exists public.transaksi (
@@ -20,24 +22,23 @@ create table if not exists public.transaksi (
 );
 alter table public.transaksi add column if not exists admin_email text default (auth.jwt()->>'email');
 create index if not exists idx_transaksi_nis on public.transaksi(nis);
+create index if not exists idx_transaksi_tanggal on public.transaksi(tanggal);
 
 drop view if exists public.saldo_santri;
 create view public.saldo_santri with (security_invoker = true) as
-select s.nis, s.nama, s.kelas, s.alamat, s.aktif, s.created_at,
+select s.nis, s.nama, s.alamat, s.tanggal_masuk, s.tanggal_keluar, s.keterangan, s.aktif, s.created_at,
   coalesce(sum(t.jumlah) filter (where t.jenis='masuk'),0) as total_masuk,
   coalesce(sum(t.jumlah) filter (where t.jenis='keluar'),0) as total_keluar,
   coalesce(sum(case when t.jenis='masuk' then t.jumlah else -t.jumlah end),0) as saldo,
   max(t.tanggal) as terakhir
 from public.santri s left join public.transaksi t on t.nis=s.nis
-group by s.nis, s.nama, s.kelas, s.alamat, s.aktif, s.created_at;
+group by s.nis, s.nama, s.alamat, s.tanggal_masuk, s.tanggal_keluar, s.keterangan, s.aktif, s.created_at;
 
--- Cegah penarikan melebihi saldo
 create or replace function public.cek_saldo() returns trigger as $$
 declare sisa numeric;
 begin
   if new.jenis='keluar' then
-    select coalesce(sum(case when jenis='masuk' then jumlah else -jumlah end),0) into sisa
-    from public.transaksi where nis=new.nis;
+    select coalesce(sum(case when jenis='masuk' then jumlah else -jumlah end),0) into sisa from public.transaksi where nis=new.nis;
     if new.jumlah > sisa then raise exception 'Saldo tidak cukup'; end if;
   end if;
   return new;
@@ -45,7 +46,6 @@ end $$ language plpgsql;
 drop trigger if exists trg_cek_saldo on public.transaksi;
 create trigger trg_cek_saldo before insert on public.transaksi for each row execute function public.cek_saldo();
 
--- Keamanan: publik hanya MELIHAT, admin (login) yang MENGUBAH
 alter table public.santri enable row level security;
 alter table public.transaksi enable row level security;
 do $$ declare p record; begin
@@ -63,7 +63,6 @@ create policy "Admin menghapus transaksi" on public.transaksi for delete to auth
 grant select on public.santri, public.transaksi, public.saldo_santri to anon, authenticated;
 grant insert, update, delete on public.santri, public.transaksi to authenticated;
 
--- Realtime
 do $$ begin
   begin alter publication supabase_realtime add table public.santri; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.transaksi; exception when duplicate_object then null; end;

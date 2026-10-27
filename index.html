@@ -1,55 +1,42 @@
-<!DOCTYPE html>
-<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TABANSA - Tabungan Santri</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#12263F">
-<script src="theme.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TABANSA - Tabungan Santri</title><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.png"><meta name="theme-color" content="#2547C7">
+<script src="theme.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
-<header class="top"><div class="wrap">
- <a class="brand" href="index.html"><img src="icon.svg" alt=""><span><b>TABANSA</b><small>Tabungan Santri</small></span></a>
- <div class="acts"><button class="ibtn" data-theme-toggle type="button"></button><a class="tlink" href="admin/login.html">Masuk admin</a></div>
-</div></header>
-<section class="hero"><div class="wrap">
- <p>Total tabungan seluruh santri</p><div class="big num" id="total">Rp 0</div>
- <div class="mini" id="mini"></div>
-</div></section>
-<div class="wrap">
- <div class="card pad find">
-  <input id="q" class="in" type="search" placeholder="Cari NIS atau nama santri" aria-label="Cari santri">
-  <select id="sort" class="in" aria-label="Urutkan"><option value="nama">Nama A-Z</option><option value="nis">NIS</option><option value="saldo">Saldo terbesar</option><option value="baru">Terbaru</option></select>
-  <div class="chips" id="chips"><button class="chip" data-f="" aria-pressed="true">Semua</button><button class="chip" data-f="ada" aria-pressed="false">Ada saldo</button><button class="chip" data-f="kosong" aria-pressed="false">Saldo kosong</button></div>
-  <button class="btn soft" id="dl" type="button">Unduh CSV</button>
- </div>
- <div class="layout">
-  <div class="card" id="listBox"><div id="list"></div><p class="empty" id="empty" hidden></p><div style="text-align:center;padding:12px"><button class="btn soft" id="more" hidden>Tampilkan lebih banyak</button></div></div>
-  <aside class="card"><div class="sec">Aktivitas terbaru</div><div id="feed"></div><p class="mut" style="padding:10px 16px" id="live">Menghubungkan...</p></aside>
- </div>
-</div>
-<dialog class="sheet" id="sh"><div class="shh"><div><h3 id="hN"></h3><small id="hS"></small></div><button class="x" type="button" aria-label="Tutup" onclick="sh.close()">&times;</button></div>
- <div class="shb"><div class="sum" id="sum"></div><div id="led"></div></div></dialog>
+<header class="top"><div class="wrap"><a class="brand" href="index.html"><img src="icon.png" alt=""><span><b>TABANSA</b><small id="lem"></small></span></a>
+<div class="acts"><span id="dot" class="dot" title="Status realtime"></span><button class="ib" data-theme-toggle aria-label="Ganti tema terang/gelap" title="Ganti tema">&#9680;</button><a class="btn btn-sm" href="admin/login.html">Login admin</a></div></div></header>
+<section class="hero"><div class="wrap"><p>Total tabungan seluruh santri</p><h1 id="hSaldo" class="num">Rp 0</h1></div></section>
+<main class="wrap">
+<div class="chips" id="chips"></div>
+<section class="card"><h2>Transaksi per periode</h2><div id="periode"></div></section>
+<section class="card"><div class="bar"><h2>Data tabungan santri</h2><button id="dl" class="btn btn-ghost btn-sm">Unduh CSV</button></div>
+<div class="bar" id="flt"></div>
+<div class="tw only-w"><table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Alamat</th><th>Tgl Masuk</th><th>Tgl Keluar</th><th>Ket</th><th>Status</th><th class="r">Saldo</th></tr></thead><tbody id="tb"></tbody></table></div>
+<div class="only-n" id="cards"></div>
+<p id="empty" class="empty" hidden></p><div style="text-align:center;margin-top:12px"><button id="more" class="btn btn-ghost" hidden>Tampilkan lebih banyak</button></div></section>
+</main>
+<div class="modal" id="modal" hidden><div class="sheet"><button class="ib x" id="mx" aria-label="Tutup">&times;</button><h3 id="mN"></h3><p class="mut" id="mI" style="margin:0"></p><div class="sum" id="mS"></div><div id="mL"></div></div></div>
 <script src="config.js"></script><script src="common.js"></script>
 <script>
-let S=[],shown=50,F="";
-async function load(){
- const[a,b]=await Promise.all([sb.from("saldo_santri").select("*"),sb.from("transaksi").select("*,santri(nama)").order("created_at",{ascending:false}).limit(8)]);
- if(a.error){$("#empty").hidden=false;$("#empty").textContent="Data belum bisa dimuat: "+a.error.message;return}
- S=a.data||[];const sum=k=>S.reduce((t,x)=>t+Number(x[k]),0);
- $("#total").textContent=rp(sum("saldo"));
- $("#mini").innerHTML=[["Santri",S.length],["Total setoran",rp(sum("total_masuk"))],["Total penarikan",rp(sum("total_keluar"))]].map(([l,v])=>`<div><b class="num">${v}</b><span>${l}</span></div>`).join("");
- $("#feed").innerHTML=(b.data||[]).map(r=>`<div class="feed"><i class="dot" style="background:var(--${r.jenis==="masuk"?"in":"out"})"></i><div class="grow"><b>${esc(r.santri?.nama||r.nis)}</b><small>${tgl(r.tanggal)}</small></div><span class="amt num ${r.jenis==="masuk"?"pos":"neg"}">${r.jenis==="masuk"?"+":"−"}${rp(r.jumlah)}</span></div>`).join("")||'<p class="empty">Belum ada transaksi.</p>';
- render()}
-function filtered(){const q=$("#q").value.toLowerCase();
- const d=S.filter(x=>(x.nis+" "+x.nama+" "+(x.alamat||"")).toLowerCase().includes(q)&&(F===""||(F==="ada"?x.saldo>0:x.saldo<=0)));
- return d.sort({nama:(a,b)=>a.nama.localeCompare(b.nama),nis:(a,b)=>a.nis.localeCompare(b.nis,undefined,{numeric:true}),saldo:(a,b)=>b.saldo-a.saldo,baru:(a,b)=>new Date(b.created_at)-new Date(a.created_at)}[$("#sort").value])}
-function render(){const d=filtered();$("#empty").hidden=d.length>0;$("#empty").textContent=S.length?"Tidak ada santri yang cocok.":"Belum ada data santri.";$("#more").hidden=d.length<=shown;
- $("#list").innerHTML=d.slice(0,shown).map(x=>`<button class="row" onclick="detail('${esc(x.nis)}')"><span class="av">${inisial(x.nama)}</span><span class="grow"><b>${esc(x.nama)}</b><small>NIS ${esc(x.nis)}${x.alamat?" · "+esc(x.alamat):""}</small></span><span class="amt num">${rp(x.saldo)}</span></button>`).join("")}
-["q","sort"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=50;render()}));
-$("#chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;F=b.dataset.f;document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));shown=50;render()};
-$("#more").onclick=()=>{shown+=50;render()};
-$("#dl").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Total Setoran","Total Penarikan","Saldo"],...filtered().map(x=>[x.nis,x.nama,x.alamat,x.total_masuk,x.total_keluar,x.saldo])]);
-async function detail(nis){const x=S.find(s=>s.nis===nis);$("#hN").textContent=x.nama;$("#hS").textContent="NIS "+x.nis;$("#sum").innerHTML=sumBox(x);
- $("#led").innerHTML='<p class="empty">Memuat...</p>';sh.showModal();
- const{data}=await sb.from("transaksi").select("*").eq("nis",nis);
- $("#led").innerHTML=ledger(data||[]).map(r=>ledRow({...r,admin_email:null},false)).join("")||'<p class="empty">Belum ada transaksi.</p>'}
-load();
-sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},load).subscribe(s=>{$("#live").textContent=s==="SUBSCRIBED"?"Data tampil langsung (realtime)":"Menghubungkan..."});
+let S=[],shown=40,muatPeriode;
+$("#lem").textContent=NAMA_LEMBAGA;$("#flt").innerHTML=FILTER_HTML;muatPeriode=initPeriode($("#periode"));
+const chip=(l,v,c)=>`<div class="chip ${c||""}"><span>${l}</span><b>${v}</b></div>`;
+async function load(){const{data,error}=await sb.from("saldo_santri").select("*");
+ if(error){$("#empty").hidden=false;$("#empty").textContent="Data belum bisa dimuat: "+error.message;return}
+ S=data||[];const sum=k=>S.reduce((t,x)=>t+Number(x[k]),0);$("#hSaldo").textContent=rp(sum("saldo"));
+ $("#chips").innerHTML=chip("Total santri",S.length)+chip("Santri aktif",S.filter(x=>x.aktif).length)+chip("Total setoran",rp(sum("total_masuk")),"in")+chip("Total penarikan",rp(sum("total_keluar")),"out");render()}
+const lihat=()=>filterSantri(S,$("#q").value,$("#fSt").value,$("#fSa").value,$("#fSo").value);
+function render(){const d=lihat(),v=d.slice(0,shown);$("#empty").hidden=d.length>0;$("#empty").textContent=S.length?"Tidak ada santri yang cocok.":"Belum ada data santri.";$("#more").hidden=d.length<=shown;
+ $("#tb").innerHTML=v.map((x,i)=>`<tr class="klik" onclick="detail('${esc(x.nis)}')"><td class="mut">${i+1}</td><td class="nw">${esc(x.nis)}</td><td class="nw"><span class="av">${inisial(x.nama)}</span><b>${esc(x.nama)}</b></td><td>${esc(x.alamat||"-")}</td><td class="nw">${tgl(x.tanggal_masuk)}</td><td class="nw">${tgl(x.tanggal_keluar)}</td><td>${esc(x.keterangan||"-")}</td><td>${statusPill(x)}</td><td class="r nw"><b>${rp(x.saldo)}</b></td></tr>`).join("");
+ $("#cards").innerHTML=v.map(x=>`<button class="scard" onclick="detail('${esc(x.nis)}')"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>${esc(x.nama)}</b><br><small class="mut">NIS ${esc(x.nis)}${x.alamat?" · "+esc(x.alamat):""}</small></div>${statusPill(x)}</div><div class="num">${rp(x.saldo)}</div></button>`).join("")}
+["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));$("#more").onclick=()=>{shown+=40;render()};
+$("#dl").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Tgl Masuk","Tgl Keluar","Keterangan","Status","Total Setoran","Total Penarikan","Saldo"],...lihat().map(x=>[x.nis,x.nama,x.alamat,x.tanggal_masuk,x.tanggal_keluar,x.keterangan,x.aktif?"Aktif":"Tidak aktif",x.total_masuk,x.total_keluar,x.saldo])]);
+async function detail(nis){const x=S.find(s=>s.nis===nis);$("#mN").textContent=x.nama;
+ $("#mI").textContent="NIS "+x.nis+(x.alamat?" · "+x.alamat:"")+" · masuk "+tgl(x.tanggal_masuk)+(x.tanggal_keluar?" · keluar "+tgl(x.tanggal_keluar):"");
+ $("#mS").innerHTML=[["Setoran",rp(x.total_masuk),"in"],["Penarikan",rp(x.total_keluar),"out"],["Saldo",rp(x.saldo),""]].map(([l,v,c])=>`<div><span>${l}</span><b class="${c}">${v}</b></div>`).join("");
+ $("#mL").innerHTML='<p class="empty">Memuat...</p>';$("#modal").hidden=false;
+ const{data}=await sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false});
+ $("#mL").innerHTML=(data||[]).map(r=>trxRow(r,false)).join("")||'<p class="empty">Belum ada transaksi.</p>'}
+$("#mx").onclick=()=>$("#modal").hidden=true;$("#modal").onclick=e=>{if(e.target.id==="modal")e.target.hidden=true};
+load();sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode()}).subscribe(s=>$("#dot").classList.toggle("on",s==="SUBSCRIBED"));
 </script></body></html>

@@ -1,13 +1,15 @@
 # TABANSA — Tabungan Santri
 
-Pencatatan setoran dan penarikan tabungan santri berdasarkan NIS. Semua orang bisa MELIHAT; hanya admin yang login yang bisa MENGUBAH.
+Pencatatan setoran dan penarikan tabungan santri. Semua orang bisa MELIHAT; hanya admin yang login yang bisa MENGUBAH.
 
-- `index.html` — halaman publik (total tabungan, cari santri, riwayat bergaya buku tabungan dengan saldo berjalan)
-- `admin/login.html`, `admin/admin.html` — login dan panel admin (kasir setoran/penarikan, kelola santri, CSV)
-- `config.js` — URL dan publishable key Supabase (sudah terisi)
-- `supabase-setup.sql` — tabel, view saldo, trigger saldo, RLS
+## Struktur
+- `index.html` — halaman publik (ringkasan, transaksi per periode, daftar santri + saldo, riwayat)
+- `admin/login.html` — login admin
+- `admin/admin.html` — tambah/edit/hapus santri (NIS, nama, alamat, tgl masuk/keluar, keterangan, status), catat Setor/Tarik dari tabel atau lewat NIS, riwayat, CSV
+- `config.js` — URL & key Supabase (sudah terisi), `NAMA_LEMBAGA` bisa diganti
+- `supabase-setup.sql` — tabel, view saldo, trigger, RLS
 
 ## Pasang
-1. Supabase → SQL Editor → jalankan `supabase-setup.sql`.
-2. Authentication → Users → Add user (admin). Matikan "Allow new users to sign up".
-3. Upload isi folder ke GitHub → Settings → Pages → Deploy from branch (main, root).
+1. Supabase → SQL Editor → jalankan `supabase-setup.sql` (aman diulang).
+2. Authentication → Users → Add user (email + password admin). Matikan "Allow new users to sign up".
+3. Upload semua isi folder ke GitHub → Settings → Pages → Deploy from branch (main, root).
