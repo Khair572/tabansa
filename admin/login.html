@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Masuk Admin - TABANSA</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#12263F">
+<script src="../theme.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="../css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
+<body><main class="login"><form class="lcard" id="f">
+ <img src="icon.svg" alt=""><h1 class="disp" style="font-size:1.6rem">Masuk admin</h1><p class="mut" style="margin:.2rem 0 18px">Kelola setoran dan penarikan tabungan santri.</p>
+ <label class="f"><span>Email</span><input class="in" id="e" type="email" required autocomplete="username"></label>
+ <label class="f"><span>Kata sandi</span><div class="pw"><input class="in" id="p" type="password" required autocomplete="current-password" style="padding-right:70px"><button type="button" id="tg">Lihat</button></div></label>
+ <p class="err" id="err" role="alert"></p><button class="btn" id="b">Masuk</button>
+ <p style="text-align:center;margin:16px 0 0"><a class="mut" href="../index.html">Kembali ke halaman TABANSA</a></p>
+</form></main>
+<script src="../config.js"></script>
+<script>
+const g=i=>document.getElementById(i);
+sb.auth.getSession().then(({data})=>{if(data.session)location.href="admin.html"});
+g("tg").onclick=()=>{const s=g("p").type==="password";g("p").type=s?"text":"password";g("tg").textContent=s?"Sembunyi":"Lihat"};
+g("f").onsubmit=async e=>{e.preventDefault();g("b").disabled=true;g("b").textContent="Memproses...";g("err").textContent="";
+ const{error}=await sb.auth.signInWithPassword({email:g("e").value,password:g("p").value});
+ if(error){g("err").textContent="Email atau kata sandi salah.";g("b").disabled=false;g("b").textContent="Masuk"}else location.href="admin.html"};
+</script></body></html>
