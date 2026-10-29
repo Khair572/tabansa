@@ -1,1 +1,1 @@
-{"name":"Admin TABANSA","short_name":"Admin TABANSA","start_url":"login.html","display":"standalone","background_color":"#F4F6FB","theme_color":"#2547C7","icons":[{"src":"icon.png","sizes":"512x512","type":"image/png"}]}
+{"name":"Admin TABANSA","short_name":"Admin TABANSA","start_url":"login.html","display":"standalone","background_color":"#F4F6FB","theme_color":"#2547C7","icons":[{"src":"icon.png","sizes":"512x512","type":"image/png"}],"scope":"./","id":"login.html"}

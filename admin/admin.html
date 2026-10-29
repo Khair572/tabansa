@@ -1,13 +1,15 @@
 <!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Admin - TABANSA</title><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.png"><meta name="theme-color" content="#2547C7">
 <script src="../theme.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="../style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
+<script src="../supabase.js"></script></head>
 <body>
 <header class="top"><div class="wrap"><a class="brand" href="../index.html"><img src="icon.png" alt=""><span><b>TABANSA Admin</b><small id="who"></small></span></a>
 <div class="acts"><button class="ib" data-theme-toggle aria-label="Ganti tema terang/gelap" title="Ganti tema">&#9680;</button><a class="btn btn-ghost btn-sm only-w" href="../index.html">Halaman publik</a><button id="out" class="btn btn-bad btn-sm">Keluar</button></div></div></header>
 <section class="hero" style="padding-bottom:58px"><div class="wrap"><p>Total tabungan seluruh santri</p><h1 id="hSaldo" class="num">Rp 0</h1></div></section>
 <main class="wrap">
 <div class="chips" id="chips"></div>
+<section class="card" id="antreCard" hidden><div class="bar"><h2>Menunggu sinkron <span id="antreN"></span></h2><button id="sinkBtn" class="btn btn-sm">Sinkronkan sekarang</button></div>
+<p class="mut" style="margin:0 0 10px;font-size:13px">Transaksi ini tersimpan di perangkat ini dan dikirim otomatis saat online. Saldo di bawah sudah memperhitungkannya.</p><div id="antreList"></div></section>
 <section class="card"><div class="bar"><h2>Data santri &amp; tabungan</h2>
 <button id="add" class="btn btn-sm">+ Tambah santri</button><button id="cepat" class="btn btn-ok btn-sm">Catat cepat (NIS)</button>
 <button id="dlS" class="btn btn-ghost btn-sm">CSV saldo</button><button id="dlT" class="btn btn-ghost btn-sm">CSV transaksi</button></div>
@@ -42,16 +44,16 @@
 <script>
 initNet();
 let S=[],shown=40,edit=null,rNis=null,jenis="masuk",muatPeriode;
-(async()=>{const{data:{session}}=await sb.auth.getSession();if(!session){location.href="login.html";return}
- $("#who").textContent=session.user.email;$("#tTgl").value=hariIni();$("#flt").innerHTML=FILTER_HTML;
- ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).subscribe(setRT);window.onBack=()=>{load();muatPeriode();muatLog()}})();
+(async()=>{const email=await sesiAdmin();if(!email){location.href="login.html";return}
+ $("#who").textContent=email;$("#tTgl").value=hariIni();$("#flt").innerHTML=FILTER_HTML;
+ ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();sinkron();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).subscribe(setRT);window.onBack=()=>{sinkron();load();muatPeriode();muatLog()}})();
 sb.auth.onAuthStateChange(e=>{if(e==="SIGNED_OUT")location.href="login.html"});
-$("#out").onclick=()=>sb.auth.signOut();
+$("#out").onclick=()=>{try{localStorage.removeItem(CK+"log")}catch(e){}sb.auth.signOut()};
 document.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>$("#"+b.dataset.x).hidden=true);
 ["mT","mS","mR"].forEach(i=>$("#"+i).onclick=e=>{if(e.target.id===i)e.target.hidden=true});
 const chip=(l,v,c)=>`<div class="chip ${c||""}"><span>${l}</span><b>${v}</b></div>`;
-async function load(){const{data,error}=await sb.from("saldo_santri").select("*");if(error)return toast(error.message,1);
- S=data||[];const sum=k=>S.reduce((t,x)=>t+Number(x[k]),0);$("#hSaldo").textContent=rp(sum("saldo"));
+async function load(){const{data,error}=await cq("saldo",sb.from("saldo_santri").select("*"));if(error)return toast(errJaringan(error)?"Belum ada data tersimpan. Sambungkan internet sekali untuk memuat data.":error.message,1);
+ S=data||[];terapkanAntre();tampilAntre();const sum=k=>S.reduce((t,x)=>t+Number(x[k]),0);$("#hSaldo").textContent=rp(sum("saldo"));
  $("#chips").innerHTML=chip("Total santri",S.length)+chip("Santri aktif",S.filter(x=>x.aktif).length)+chip("Total setoran",rp(sum("total_masuk")),"in")+chip("Total penarikan",rp(sum("total_keluar")),"out");
  $("#dl").innerHTML=S.map(x=>`<option value="${esc(x.nis)}">${esc(x.nama)}</option>`).join("");render();cekNis()}
 const lihat=()=>filterSantri(S,$("#q").value,$("#fSt").value,$("#fSa").value,$("#fSo").value);
@@ -65,7 +67,7 @@ $("#more").onclick=()=>{shown+=40;render()};
 function setJ(j){jenis=j;document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.j===j))}
 document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>setJ(b.dataset.j));
 function cekNis(){const v=$("#tNis").value.trim().toLowerCase();const x=S.find(s=>s.nis.toLowerCase()===v)||(v?S.filter(s=>s.nama.toLowerCase()===v)[0]:null);
- $("#tInfo").innerHTML=!v?"Pilih santri untuk melihat saldo.":x?`<b style="color:var(--ink)">${esc(x.nama)}</b> · NIS ${esc(x.nis)} · saldo <b>${rp(x.saldo)}</b>`:'<span class="out">Santri tidak ditemukan.</span>';return x}
+ $("#tInfo").innerHTML=!v?"Pilih santri untuk melihat saldo.":x?`<b style="color:var(--ink)">${esc(x.nama)}</b> · NIS ${esc(x.nis)} · saldo <b>${rp(x.saldo)}</b>${x.tunggu?` <small>(termasuk ${x.tunggu} menunggu sinkron)</small>`:""}`:'<span class="out">Santri tidak ditemukan.</span>';return x}
 $("#tNis").oninput=cekNis;
 function catat(nis,j){$("#tNis").value=nis||"";setJ(j||"masuk");$("#tJml").value="";$("#tKet").value="";prev();cekNis();$("#mT").hidden=false;($("#tNis").value?$("#tJml"):$("#tNis")).focus()}
 const lab=n=>n>=1e6?n/1e6+"jt":n/1e3+"k";
@@ -74,10 +76,40 @@ function prev(){const v=parseNominal($("#tJml").value);$("#tPrev").innerHTML=isN
 $("#tJml").oninput=prev;
 $("#tQ").onclick=e=>{const b=e.target.closest("[data-n]");if(!b)return;const n=Number(b.dataset.n);$("#tJml").value=n?(parseNominal($("#tJml").value)||0)+n:"";prev();$("#tJml").focus()};
 $("#cepat").onclick=()=>catat("","masuk");
-$("#ft").onsubmit=async e=>{e.preventDefault();if(!perluOnline())return;const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=parseNominal($("#tJml").value);if(!jumlah||isNaN(jumlah)||jumlah<=0)return toast("Jumlah tidak valid. Contoh: 10k atau 25000",1);
+$("#ft").onsubmit=async e=>{e.preventDefault();const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=parseNominal($("#tJml").value);if(!jumlah||isNaN(jumlah)||jumlah<=0)return toast("Jumlah tidak valid. Contoh: 10k atau 25000",1);
  if(jenis==="keluar"&&jumlah>Number(x.saldo))return toast("Saldo tidak cukup. Saldo saat ini "+rp(x.saldo),1);
- $("#tBtn").disabled=true;const{error}=await sb.from("transaksi").insert({nis:x.nis,jenis,jumlah,tanggal:$("#tTgl").value,keterangan:$("#tKet").value.trim()||null});$("#tBtn").disabled=false;
- if(error)return toast(error.message,1);$("#mT").hidden=true;toast((jenis==="masuk"?"Setoran ":"Penarikan ")+rp(jumlah)+" untuk "+x.nama+" tersimpan.");load();muatPeriode()};
+ const trx={id:uid(),nis:x.nis,jenis,jumlah,tanggal:$("#tTgl").value,keterangan:$("#tKet").value.trim()||null},lbl=(jenis==="masuk"?"Setoran ":"Penarikan ")+rp(jumlah)+" untuk "+x.nama;
+ $("#tBtn").disabled=true;
+ if(navigator.onLine){const{error}=await sb.from("transaksi").insert(trx);
+  if(!error){$("#tBtn").disabled=false;$("#mT").hidden=true;toast(lbl+" tersimpan.");load();muatPeriode();return}
+  if(!errJaringan(error)){$("#tBtn").disabled=false;return toast(error.message,1)}}
+ // offline atau koneksi putus: simpan di perangkat, kirim otomatis nanti
+ const ok=obSet([...obGet(),{...trx,nama:x.nama,t:Date.now()}]);$("#tBtn").disabled=false;
+ if(!ok)return;$("#mT").hidden=true;toast(lbl+" disimpan di perangkat (offline). Dikirim otomatis saat online.");load()};
+
+// ---- Antrean offline: tampil, hapus, sinkron ----
+function terapkanAntre(){obGet().filter(it=>!it.err).forEach(it=>{const x=S.find(s=>s.nis===it.nis);if(!x)return;const j=Number(it.jumlah);
+ if(it.jenis==="masuk"){x.total_masuk=Number(x.total_masuk)+j;x.saldo=Number(x.saldo)+j}else{x.total_keluar=Number(x.total_keluar)+j;x.saldo=Number(x.saldo)-j}x.tunggu=(x.tunggu||0)+1});
+ const sum=k=>S.reduce((t,x)=>t+Number(x[k]),0);$("#hSaldo").textContent=rp(sum("saldo"));
+ $("#chips").innerHTML=chip("Total santri",S.length)+chip("Santri aktif",S.filter(x=>x.aktif).length)+chip("Total setoran",rp(sum("total_masuk")),"in")+chip("Total penarikan",rp(sum("total_keluar")),"out")}
+function tampilAntre(){const q=obGet();$("#antreCard").hidden=!q.length;$("#antreN").textContent=q.length?"("+q.length+")":"";
+ $("#antreList").innerHTML=q.map(it=>`<div class="trx"><div><p><b>${esc(it.nama)}</b> <small>${esc(it.nis)}</small> ${it.err?'<span class="pill bad">Ditolak</span>':'<span class="pill">Menunggu</span>'}</p><small>${tgl(it.tanggal)} · ${it.jenis==="masuk"?"Setoran":"Penarikan"}${it.keterangan?" · "+esc(it.keterangan):""}${it.err?" · "+esc(it.err):""}</small></div><div class="v">${jml(it)} <button class="btn btn-bad btn-sm" data-ob="${esc(it.id)}">Hapus</button></div></div>`).join("")}
+$("#antreList").onclick=e=>{const b=e.target.closest("[data-ob]");if(!b)return;if(!confirm("Hapus transaksi yang menunggu sinkron ini? Transaksi belum tercatat di server."))return;obSet(obGet().filter(z=>z.id!==b.dataset.ob));load()};
+$("#sinkBtn").onclick=()=>{if(perluOnline())sinkron(true)};
+let sedangSinkron=false;
+async function sinkron(manual){if(sedangSinkron||!navigator.onLine||!obGet().length)return;sedangSinkron=true;let ok=0,gagal=0,putus=false;
+ try{const{data:{session}={}}=await sb.auth.getSession();
+  if(!session){if(manual)toast("Sesi login habis. Login ulang agar transaksi offline bisa dikirim.",1);return}
+  for(const it of obGet()){
+   const{error}=await sb.from("transaksi").insert({id:it.id,nis:it.nis,jenis:it.jenis,jumlah:it.jumlah,tanggal:it.tanggal,keterangan:it.keterangan});
+   if(!error||error.code==="23505"){obSet(obGet().filter(z=>z.id!==it.id));ok++}   // 23505 = sudah pernah terkirim
+   else if(errJaringan(error)){putus=true;break}
+   else{obSet(obGet().map(z=>z.id===it.id?{...z,err:error.message}:z));gagal++}}
+ }catch(e){}finally{sedangSinkron=false}
+ if(ok)toast(ok+" transaksi offline berhasil dikirim.");
+ if(gagal)toast(gagal+" transaksi ditolak server. Periksa daftar menunggu sinkron.",1);
+ if(putus)toast("Koneksi terputus. Sisa transaksi akan dikirim nanti.",1);
+ if(ok||gagal){await load();muatPeriode();muatLog()}}
 
 function bukaS(x){edit=x?x.nis:null;$("#sT").textContent=x?"Edit data santri":"Tambah santri";$("#sNis").value=x?.nis||"";$("#sNama").value=x?.nama||"";$("#sAl").value=x?.alamat||"";$("#sM").value=x?.tanggal_masuk||"";$("#sK").value=x?.tanggal_keluar||"";$("#sKet").value=x?.keterangan||"";$("#sA").checked=x?x.aktif:true;$("#mS").hidden=false;$("#sNis").focus()}
 $("#add").onclick=()=>bukaS();const ubah=nis=>bukaS(S.find(s=>s.nis===nis));
@@ -90,12 +122,14 @@ async function hapusS(nis){if(!perluOnline())return;const x=S.find(s=>s.nis===ni
 async function riwayat(nis){rNis=nis;const x=S.find(s=>s.nis===nis);$("#rN").textContent=x.nama;$("#rI").textContent="NIS "+x.nis+(x.alamat?" · "+x.alamat:"");
  $("#rS").innerHTML=[["Setoran",rp(x.total_masuk),"in"],["Penarikan",rp(x.total_keluar),"out"],["Saldo",rp(x.saldo),""]].map(([l,v,c])=>`<div><span>${l}</span><b class="${c}">${v}</b></div>`).join("");
  $("#rL").innerHTML='<p class="empty">Memuat...</p>';$("#mR").hidden=false;
- const{data}=await sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false});
+ const{data,error}=await cq("trx:"+nis,sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false}));
+ if(error){$("#rL").innerHTML='<p class="empty">Riwayat belum tersimpan di perangkat. Buka saat online sekali.</p>';return}
  $("#rL").innerHTML=(data||[]).map(r=>`<div class="trx"><div><p>${jenisTxt(r.jenis)} · ${tgl(r.tanggal)}</p><small>${esc(r.keterangan||"-")}${r.admin_email?" · oleh "+esc(r.admin_email):""}</small></div><div class="v">${jml(r)} <button class="btn btn-bad btn-sm" onclick="hapusT('${r.id}')">Hapus</button></div></div>`).join("")||'<p class="empty">Belum ada transaksi.</p>'}
 async function hapusT(id){if(!perluOnline())return;if(!confirm("Hapus transaksi ini? Saldo akan dihitung ulang."))return;const{error}=await sb.from("transaksi").delete().eq("id",id);if(error)return toast(error.message,1);toast("Transaksi dihapus.");await load();muatPeriode();riwayat(rNis)}
 
 let LOG=[];
-async function muatLog(){const{data,error}=await sb.from("log_aktivitas").select("*").order("id",{ascending:false}).limit(200);
+async function muatLog(){const{data,error}=await cq("log",sb.from("log_aktivitas").select("*").order("id",{ascending:false}).limit(200));
+ if(error&&errJaringan(error)){$("#logList").innerHTML='<p class="empty">Log belum tersimpan di perangkat. Buka saat online sekali.</p>';return}
  if(error){$("#logList").innerHTML='<p class="empty">Log belum bisa dimuat: '+esc(error.message)+' (jalankan ulang supabase-setup.sql)</p>';return}LOG=data||[];tampilLog()}
 const SKIP=["id","created_at","admin_email"];
 function detailLog(l){const f=o=>Object.entries(o||{}).filter(([k])=>!SKIP.includes(k)).map(([k,v])=>k+": "+(v??"-"));
@@ -106,7 +140,7 @@ function tampilLog(){const q=$("#lq").value.toLowerCase(),a=$("#la").value;
  $("#logList").innerHTML=d.map(l=>`<div class="logrow"><p><span class="pill ${l.aksi==="TAMBAH"?"ok":l.aksi==="HAPUS"?"bad":""}">${l.aksi}</span> <b>${esc(l.ringkasan).replace(/Rp (\d+)/g,(m,n)=>rp(n))}</b></p><small>${new Date(l.waktu).toLocaleString("id-ID")} · oleh ${esc(l.admin_email||"-")}</small><details><summary class="mut">Rincian</summary><pre>${esc(detailLog(l))}</pre></details></div>`).join("")||'<p class="empty">Belum ada aktivitas tercatat.</p>'}
 
 $("#dlS").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Tgl Masuk","Tgl Keluar","Keterangan","Status","Total Setoran","Total Penarikan","Saldo"],...lihat().map(x=>[x.nis,x.nama,x.alamat,x.tanggal_masuk,x.tanggal_keluar,x.keterangan,x.aktif?"Aktif":"Tidak aktif",x.total_masuk,x.total_keluar,x.saldo])]);
-$("#dlT").onclick=async()=>{const{data,error}=await sb.from("transaksi").select("*,santri(nama)").order("tanggal",{ascending:false}).limit(10000);if(error)return toast(error.message,1);
+$("#dlT").onclick=async()=>{if(!perluOnline())return;const{data,error}=await sb.from("transaksi").select("*,santri(nama)").order("tanggal",{ascending:false}).limit(10000);if(error)return toast(error.message,1);
  csv("tabansa-transaksi.csv",[["Tanggal","NIS","Nama","Jenis","Jumlah","Keterangan","Admin"],...data.map(r=>[r.tanggal,r.nis,r.santri?.nama,r.jenis==="masuk"?"Setoran":"Penarikan",r.jumlah,r.keterangan,r.admin_email])])};
 
 </script></body></html>
