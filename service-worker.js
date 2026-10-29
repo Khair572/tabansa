@@ -2,7 +2,7 @@
 // - File situs sendiri: coba jaringan dulu (maks 4 detik), jika gagal pakai salinan tersimpan.
 // - Font pihak ketiga: pakai salinan tersimpan lalu perbarui di latar belakang.
 // - Permintaan ke Supabase (data) tidak disentuh; data offline ditangani oleh common.js.
-const V = "tabansa-v3";
+const V = "tabansa-v4";
 const SHELL = ["./", "index.html", "admin/login.html", "admin/admin.html", "style.css", "common.js",
   "config.js", "theme.js", "supabase.js", "manifest.json", "admin/manifest.json", "icon.png"];
 

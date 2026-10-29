@@ -39,5 +39,5 @@ async function detail(nis){const x=S.find(s=>s.nis===nis);if(!x)return;$("#mN").
  $("#mL").innerHTML=error?'<p class="empty">Riwayat belum tersimpan di perangkat. Buka saat online sekali.</p>':(data||[]).map(r=>trxRow(r,false)).join("")||'<p class="empty">Belum ada transaksi.</p>'}
 document.addEventListener("click",e=>{const r=e.target.closest("[data-nis]");if(r)detail(r.dataset.nis)});
 $("#mx").onclick=()=>$("#modal").hidden=true;$("#modal").onclick=e=>{if(e.target.id==="modal")e.target.hidden=true};
-load();sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode()}).subscribe(setRT);window.onBack=()=>{load();muatPeriode()};
+load();sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode()}).on("postgres_changes",{event:"INSERT",schema:"public",table:"transaksi"},p=>notifTrx(p.new)).subscribe(setRT);window.onBack=()=>{load();muatPeriode()};
 </script></body></html>

@@ -73,6 +73,25 @@ async function sesiAdmin(){let s=null;try{const{data}=await sb.auth.getSession()
  if(!navigator.onLine||SB_STUB){try{for(const k of Object.keys(localStorage)){if(/^sb-.+-auth-token$/.test(k)){const v=JSON.parse(localStorage.getItem(k)),u=v&&(v.user||(v.currentSession&&v.currentSession.user));if(u)return u.email||"admin"}}}catch(e){}}
  return null}
 
+// ---- Notifikasi (hanya di aplikasi Android lewat AndroidBridge) ----
+const adaBridge=()=>!!(window.AndroidBridge&&AndroidBridge.notifikasi);
+const notifOn=()=>{try{return localStorage.getItem(CK+"notif")!=="off"}catch(e){return true}};
+const diLatar=()=>{try{return window.AndroidBridge&&AndroidBridge.diLatarBelakang?AndroidBridge.diLatarBelakang():document.hidden}catch(e){return document.hidden}};
+// Tampilkan notifikasi sistem. Secara bawaan hanya saat aplikasi di latar belakang (paksa=true untuk selalu).
+function notif(judul,isi,paksa){if(!adaBridge()||!notifOn())return false;if(!paksa&&!diLatar())return false;try{AndroidBridge.notifikasi(String(judul),String(isi));return true}catch(e){return false}}
+const MILIK=new Set();   // ID transaksi yang dibuat di perangkat ini (tidak perlu diberi notifikasi)
+let NT_BUF=[],NT_T=0;
+// Transaksi baru dari realtime: kumpulkan beberapa detik agar tidak membanjiri notifikasi.
+function notifTrx(r){if(!r||MILIK.has(r.id)||!adaBridge()||!notifOn()||!diLatar())return;NT_BUF.push(r);clearTimeout(NT_T);
+ NT_T=setTimeout(()=>{const b=NT_BUF;NT_BUF=[];if(!b.length)return;
+  if(b.length===1){const r=b[0],x=(typeof S!=="undefined"&&Array.isArray(S)&&S.find(s=>s.nis===r.nis))||{};
+   notif((r.jenis==="masuk"?"Setoran ":"Penarikan ")+rp(r.jumlah),(x.nama?x.nama+" · ":"")+"NIS "+r.nis+" · "+tgl(r.tanggal))}
+  else notif(b.length+" transaksi baru","Ada setoran/penarikan baru yang tercatat.")},2500)}
+function bellUI(){const b=$("#bell");if(!b)return;const on=notifOn();b.innerHTML=on?"&#128276;":"&#128277;";b.title=on?"Notifikasi aktif (ketuk untuk mematikan)":"Notifikasi mati (ketuk untuk menyalakan)";b.setAttribute("aria-pressed",on)}
+function bellKlik(){const on=!notifOn();try{localStorage.setItem(CK+"notif",on?"on":"off")}catch(e){}bellUI();toast(on?"Notifikasi dinyalakan.":"Notifikasi dimatikan.");
+ if(!on)return;try{if(AndroidBridge.notifikasiAktif&&!AndroidBridge.notifikasiAktif()){toast("Notifikasi diblokir di pengaturan HP. Membuka pengaturan...",1);AndroidBridge.pengaturanNotifikasi();return}}catch(e){}
+ notif("TABANSA","Notifikasi aktif. Anda akan diberi tahu saat ada transaksi baru.",true)}
+
 // ---- Indikator online/offline ----
 let STALE_T=0;
 const PESAN_OFF=location.pathname.indexOf("/admin/")>=0?"Anda sedang offline. Setoran/penarikan akan diantre dan disinkronkan otomatis saat online. Edit dan hapus data butuh internet.":"Anda sedang offline. Menampilkan data yang tersimpan di perangkat.";
@@ -82,6 +101,7 @@ function netUI(){const n=$("#net");if(!n)return;const off=!navigator.onLine,srv=
  const b=$("#offBar");if(b){b.hidden=!(off||STALE_T);b.textContent=(off?PESAN_OFF:"Server tidak terjangkau. Menampilkan data yang tersimpan.")+(STALE_T?" Data terakhir diperbarui "+new Date(STALE_T).toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+".":"")}}
 const setRT=s=>{RT=s;netUI()};
 function initNet(){document.querySelector(".acts").insertAdjacentHTML("afterbegin",'<span id="net" class="net wait" role="status" aria-live="polite"><i></i><span>Menyambung</span></span>');
+ if(adaBridge()){$("#net").insertAdjacentHTML("afterend",'<button class="ib" id="bell" type="button" aria-label="Notifikasi"></button>');$("#bell").onclick=bellKlik;bellUI()}
  document.body.insertAdjacentHTML("beforeend",'<div id="offBar" class="offbar" role="alert" hidden></div>');
  addEventListener("offline",netUI);addEventListener("online",()=>{netUI();toast("Kembali online");if(window.onBack)window.onBack()});netUI()}
 function perluOnline(){if(navigator.onLine)return true;toast("Anda sedang offline. Coba lagi setelah tersambung.",1);return false}

@@ -33,3 +33,6 @@ Di pojok kanan atas halaman publik dan admin ada status **Online** (hijau, terhu
 - **Unduh CSV** bekerja di aplikasi Android (lewat `AndroidBridge`) maupun browser.
 - Pustaka Supabase (`supabase.js`, v2.118.0) sudah disimpan lokal di folder ini, tidak lagi bergantung pada CDN. Untuk memperbaruinya, ganti file itu dengan versi terbaru dari jsdelivr.
 
+## Notifikasi (aplikasi Android)
+Di aplikasi Android (WebView dengan `AndroidBridge`) muncul tombol lonceng di header untuk menyalakan/mematikan notifikasi. Notifikasi sistem tampil saat aplikasi berada di latar belakang untuk: transaksi baru yang tercatat (digabung jika banyak), serta hasil sinkron transaksi offline di halaman admin (terkirim/ditolak). Notifikasi bersifat "selama aplikasi masih berjalan"; untuk notifikasi saat aplikasi benar-benar tertutup dibutuhkan push (Firebase Cloud Messaging) dan server pengirim, yang belum ada di sini. Di browser biasa tombol dan notifikasi ini tidak muncul.
+
