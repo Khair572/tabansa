@@ -7,8 +7,11 @@ const iso=d=>new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
 const hariIni=()=>iso(new Date());
 function toast(m,err){let b=$("#toasts");if(!b){b=document.createElement("div");b.id="toasts";document.body.append(b)}
  const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=m;b.append(t);setTimeout(()=>t.remove(),3500)}
-function csv(nama,rows){const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';const a=document.createElement("a");
- a.href=URL.createObjectURL(new Blob(["\ufeff"+rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));a.download=nama;a.click()}
+function csv(nama,rows){const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+ const teks="\ufeff"+rows.map(r=>r.map(q).join(",")).join("\n");
+ // Aplikasi Android (WebView) tidak bisa mengunduh blob; simpan lewat jembatan bila tersedia.
+ if(window.AndroidBridge&&AndroidBridge.simpanCsv){try{AndroidBridge.simpanCsv(nama,btoa(unescape(encodeURIComponent(teks))));return}catch(e){}}
+ const u=URL.createObjectURL(new Blob([teks],{type:"text/csv"})),a=document.createElement("a");a.href=u;a.download=nama;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 const jenisTxt=j=>j==="masuk"?'<b class="in">Setoran</b>':'<b class="out">Penarikan</b>';
 const statusPill=x=>x.aktif?'<span class="pill ok">Aktif</span>':'<span class="pill">Tidak aktif</span>';
 const inisial=n=>esc((n||"?").trim().charAt(0).toUpperCase());
@@ -32,8 +35,8 @@ function initPeriode(el){
   if(p==="bulan"){a=new Date(d.getFullYear(),d.getMonth(),1);b=new Date(d.getFullYear(),d.getMonth()+1,0)}
   $("#pA").value=iso(a);$("#pB").value=iso(b);muat()};
  async function muat(){const a=$("#pA").value,b=$("#pB").value;if(!a||!b)return;
-  const{data,error}=await sb.from("transaksi").select("*,santri(nama)").gte("tanggal",a).lte("tanggal",b).order("tanggal",{ascending:false}).order("created_at",{ascending:false}).limit(500);
-  if(error){$("#pList").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return}
+  const{data,error}=await cq("per:"+a+":"+b,sb.from("transaksi").select("*,santri(nama)").gte("tanggal",a).lte("tanggal",b).order("tanggal",{ascending:false}).order("created_at",{ascending:false}).limit(500));
+  if(error){$("#pSum").textContent="";$("#pList").innerHTML='<p class="empty">'+(errJaringan(error)?"Tidak ada koneksi dan data periode ini belum tersimpan di perangkat.":esc(error.message))+'</p>';return}
   const m=data.filter(r=>r.jenis==="masuk").reduce((t,r)=>t+Number(r.jumlah),0),k=data.filter(r=>r.jenis==="keluar").reduce((t,r)=>t+Number(r.jumlah),0);
   $("#pSum").innerHTML=`${data.length} transaksi &middot; setoran <b class="in">${rp(m)}</b> &middot; penarikan <b class="out">${rp(k)}</b>`;
   $("#pList").innerHTML=data.map(r=>trxRow(r,true)).join("")||'<p class="empty">Tidak ada transaksi pada periode ini.</p>'}
@@ -45,13 +48,40 @@ function parseNominal(s){s=String(s||"").toLowerCase().replace(/rp|\s/g,"");if(!
  if(m[2]){n=parseFloat(n.replace(",","."))*(/^(k|rb|ribu)$/.test(m[2])?1e3:1e6)}else n=parseFloat(n.replace(/[.,]/g,""));
  return Math.round(n)}
 
+// ---- Cache data untuk offline ----
+const CK="tb:";
+const simpan=(k,d)=>{try{localStorage.setItem(CK+k,JSON.stringify({t:Date.now(),d}))}catch(e){}pangkas("per:",8);pangkas("trx:",30)};
+const baca=k=>{try{return JSON.parse(localStorage.getItem(CK+k))}catch(e){return null}};
+function pangkas(pref,maks){try{Object.keys(localStorage).filter(k=>k.startsWith(CK+pref)).map(k=>[k,(JSON.parse(localStorage.getItem(k))||{}).t||0]).sort((a,b)=>b[1]-a[1]).slice(maks).forEach(([k])=>localStorage.removeItem(k))}catch(e){}}
+// true jika galat disebabkan jaringan (bukan penolakan server)
+const errJaringan=e=>!navigator.onLine||!e||(!e.code&&!e.status&&/fetch|network|load failed|offline|timeout/i.test(e.message||""));
+// Jalankan permintaan Supabase; jika gagal karena jaringan, pakai data tersimpan terakhir.
+async function cq(key,req){let r;try{r=await req}catch(e){r={data:null,error:e}}
+ if(!r.error){simpan(key,r.data);if(STALE_T){STALE_T=0;netUI()}return r}
+ if(errJaringan(r.error)){const c=baca(key);if(c){STALE_T=STALE_T?Math.min(STALE_T,c.t):c.t;netUI();return{data:c.d,error:null}}}
+ return r}
+
+// ---- Antrean transaksi offline (admin) ----
+const OB_K=CK+"outbox";
+const obGet=()=>{try{return JSON.parse(localStorage.getItem(OB_K))||[]}catch(e){return[]}};
+const obSet=a=>{try{localStorage.setItem(OB_K,JSON.stringify(a));return true}catch(e){toast("Penyimpanan perangkat penuh.",1);return false}};
+const uid=()=>crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:r&3|8).toString(16)});
+
+// ---- Sesi admin yang tetap dikenali saat offline ----
+async function sesiAdmin(){let s=null;try{const{data}=await sb.auth.getSession();s=data&&data.session}catch(e){}
+ if(s&&s.user)return s.user.email||"admin";
+ if(!navigator.onLine||SB_STUB){try{for(const k of Object.keys(localStorage)){if(/^sb-.+-auth-token$/.test(k)){const v=JSON.parse(localStorage.getItem(k)),u=v&&(v.user||(v.currentSession&&v.currentSession.user));if(u)return u.email||"admin"}}}catch(e){}}
+ return null}
+
 // ---- Indikator online/offline ----
+let STALE_T=0;
+const PESAN_OFF=location.pathname.indexOf("/admin/")>=0?"Anda sedang offline. Setoran/penarikan akan diantre dan disinkronkan otomatis saat online. Edit dan hapus data butuh internet.":"Anda sedang offline. Menampilkan data yang tersimpan di perangkat.";
 function netUI(){const n=$("#net");if(!n)return;const off=!navigator.onLine,srv=["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(RT),st=off||srv?"off":RT==="SUBSCRIBED"?"on":"wait";
  n.className="net "+st;n.querySelector("span").textContent={off:"Offline",on:"Online",wait:"Menyambung"}[st];
  n.title={off:off?"Tidak ada koneksi internet":"Server tidak terjangkau, mencoba menyambung ulang",on:"Terhubung ke server (data realtime)",wait:"Menyambungkan ke server..."}[st];
- const b=$("#offBar");if(b)b.hidden=!off}
+ const b=$("#offBar");if(b){b.hidden=!(off||STALE_T);b.textContent=(off?PESAN_OFF:"Server tidak terjangkau. Menampilkan data yang tersimpan.")+(STALE_T?" Data terakhir diperbarui "+new Date(STALE_T).toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+".":"")}}
 const setRT=s=>{RT=s;netUI()};
 function initNet(){document.querySelector(".acts").insertAdjacentHTML("afterbegin",'<span id="net" class="net wait" role="status" aria-live="polite"><i></i><span>Menyambung</span></span>');
- document.body.insertAdjacentHTML("beforeend",'<div id="offBar" class="offbar" role="alert" hidden>Anda sedang offline. Perubahan tidak akan tersimpan sampai koneksi kembali.</div>');
+ document.body.insertAdjacentHTML("beforeend",'<div id="offBar" class="offbar" role="alert" hidden></div>');
  addEventListener("offline",netUI);addEventListener("online",()=>{netUI();toast("Kembali online");if(window.onBack)window.onBack()});netUI()}
 function perluOnline(){if(navigator.onLine)return true;toast("Anda sedang offline. Coba lagi setelah tersambung.",1);return false}

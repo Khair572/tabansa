@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TABANSA - Tabungan Santri</title><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.png"><meta name="theme-color" content="#2547C7">
 <script src="theme.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
+<script src="supabase.js"></script></head>
 <body>
 <header class="top"><div class="wrap"><a class="brand" href="index.html"><img src="icon.png" alt=""><span><b>TABANSA</b><small id="lem"></small></span></a>
 <div class="acts"><button class="ib" data-theme-toggle aria-label="Ganti tema terang/gelap" title="Ganti tema">&#9680;</button><a class="btn btn-sm" href="admin/login.html">Login admin</a></div></div></header>
@@ -21,8 +21,8 @@
 let S=[],shown=40,muatPeriode;
 initNet();$("#lem").textContent=NAMA_LEMBAGA;$("#flt").innerHTML=FILTER_HTML;muatPeriode=initPeriode($("#periode"));
 const chip=(l,v,c)=>`<div class="chip ${c||""}"><span>${l}</span><b>${v}</b></div>`;
-async function load(){const{data,error}=await sb.from("saldo_santri").select("*");
- if(error){$("#empty").hidden=false;$("#empty").textContent="Data belum bisa dimuat: "+error.message;return}
+async function load(){const{data,error}=await cq("saldo",sb.from("saldo_santri").select("*"));
+ if(error){$("#empty").hidden=false;$("#empty").textContent=errJaringan(error)?"Belum ada data tersimpan. Sambungkan internet sekali untuk memuat data.":"Data belum bisa dimuat: "+error.message;return}
  S=data||[];const sum=k=>S.reduce((t,x)=>t+Number(x[k]),0);$("#hSaldo").textContent=rp(sum("saldo"));
  $("#chips").innerHTML=chip("Total santri",S.length)+chip("Santri aktif",S.filter(x=>x.aktif).length)+chip("Total setoran",rp(sum("total_masuk")),"in")+chip("Total penarikan",rp(sum("total_keluar")),"out");render()}
 const lihat=()=>filterSantri(S,$("#q").value,$("#fSt").value,$("#fSa").value,$("#fSo").value);
@@ -31,12 +31,12 @@ function render(){const d=lihat(),v=d.slice(0,shown);$("#empty").hidden=d.length
  $("#cards").innerHTML=v.map(x=>`<button class="scard" data-nis="${esc(x.nis)}"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>${esc(x.nama)}</b><br><small class="mut">NIS ${esc(x.nis)}${x.alamat?" · "+esc(x.alamat):""}</small></div>${statusPill(x)}</div><div class="num">${rp(x.saldo)}</div></button>`).join("")}
 ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));$("#more").onclick=()=>{shown+=40;render()};
 $("#dl").onclick=()=>csv("tabansa-saldo.csv",[["NIS","Nama","Alamat","Tgl Masuk","Tgl Keluar","Keterangan","Status","Total Setoran","Total Penarikan","Saldo"],...lihat().map(x=>[x.nis,x.nama,x.alamat,x.tanggal_masuk,x.tanggal_keluar,x.keterangan,x.aktif?"Aktif":"Tidak aktif",x.total_masuk,x.total_keluar,x.saldo])]);
-async function detail(nis){const x=S.find(s=>s.nis===nis);$("#mN").textContent=x.nama;
+async function detail(nis){const x=S.find(s=>s.nis===nis);if(!x)return;$("#mN").textContent=x.nama;
  $("#mI").textContent="NIS "+x.nis+(x.alamat?" · "+x.alamat:"")+" · masuk "+tgl(x.tanggal_masuk)+(x.tanggal_keluar?" · keluar "+tgl(x.tanggal_keluar):"");
  $("#mS").innerHTML=[["Setoran",rp(x.total_masuk),"in"],["Penarikan",rp(x.total_keluar),"out"],["Saldo",rp(x.saldo),""]].map(([l,v,c])=>`<div><span>${l}</span><b class="${c}">${v}</b></div>`).join("");
  $("#mL").innerHTML='<p class="empty">Memuat...</p>';$("#modal").hidden=false;
- const{data}=await sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false});
- $("#mL").innerHTML=(data||[]).map(r=>trxRow(r,false)).join("")||'<p class="empty">Belum ada transaksi.</p>'}
+ const{data,error}=await cq("trx:"+nis,sb.from("transaksi").select("*").eq("nis",nis).order("tanggal",{ascending:false}).order("created_at",{ascending:false}));
+ $("#mL").innerHTML=error?'<p class="empty">Riwayat belum tersimpan di perangkat. Buka saat online sekali.</p>':(data||[]).map(r=>trxRow(r,false)).join("")||'<p class="empty">Belum ada transaksi.</p>'}
 document.addEventListener("click",e=>{const r=e.target.closest("[data-nis]");if(r)detail(r.dataset.nis)});
 $("#mx").onclick=()=>$("#modal").hidden=true;$("#modal").onclick=e=>{if(e.target.id==="modal")e.target.hidden=true};
 load();sb.channel("pub").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode()}).subscribe(setRT);window.onBack=()=>{load();muatPeriode()};

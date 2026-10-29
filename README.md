@@ -23,3 +23,13 @@ Setiap tambah/ubah/hapus santri dan transaksi dicatat otomatis oleh trigger data
 
 ## Indikator koneksi
 Di pojok kanan atas halaman publik dan admin ada status **Online** (hijau, terhubung realtime), **Menyambung** (kuning), dan **Offline** (merah). Saat offline muncul pita peringatan, penyimpanan di admin ditahan, dan data dimuat ulang otomatis ketika koneksi kembali.
+
+## Mode offline (v2)
+- **Aplikasi terbuka tanpa internet.** `service-worker.js` menyimpan halaman, skrip, gaya, pustaka Supabase, dan font setelah dibuka online sekali. Update situs otomatis terambil saat online.
+- **Data tetap tampil.** Daftar santri, saldo, transaksi per periode, riwayat santri, dan log admin yang terakhir dimuat disimpan di perangkat. Saat offline atau server tidak terjangkau, data itu ditampilkan dengan keterangan kapan terakhir diperbarui. Periode tanggal atau riwayat santri yang belum pernah dibuka tidak tersedia offline.
+- **Admin bisa mencatat setoran/penarikan saat offline.** Transaksi disimpan di perangkat (kartu "Menunggu sinkron"), saldo langsung ikut dihitung, lalu dikirim otomatis saat online. Setiap transaksi punya ID unik sehingga tidak tercatat dua kali. Jika server menolak (mis. saldo tidak cukup), transaksi ditandai "Ditolak" dan bisa dihapus dari daftar. Tambah/ubah/hapus santri serta hapus transaksi tetap butuh internet.
+- **Sesi admin** tetap dikenali saat offline; pengiriman transaksi butuh sesi yang masih berlaku (jika habis, login ulang lalu transaksi terkirim otomatis).
+- Log admin yang tersimpan di perangkat dihapus saat admin menekan Keluar.
+- **Unduh CSV** bekerja di aplikasi Android (lewat `AndroidBridge`) maupun browser.
+- Pustaka Supabase (`supabase.js`, v2.118.0) sudah disimpan lokal di folder ini, tidak lagi bergantung pada CDN. Untuk memperbaruinya, ganti file itu dengan versi terbaru dari jsdelivr.
+

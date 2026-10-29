@@ -1,1 +1,1 @@
-{"name":"TABANSA - Tabungan Santri","short_name":"TABANSA","start_url":"index.html","display":"standalone","background_color":"#F4F6FB","theme_color":"#2547C7","icons":[{"src":"icon.png","sizes":"512x512","type":"image/png"}]}
+{"name":"TABANSA - Tabungan Santri","short_name":"TABANSA","start_url":"index.html","display":"standalone","background_color":"#F4F6FB","theme_color":"#2547C7","icons":[{"src":"icon.png","sizes":"512x512","type":"image/png"}],"scope":"./","id":"index.html"}
