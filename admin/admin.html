@@ -46,7 +46,7 @@ initNet();
 let S=[],shown=40,edit=null,rNis=null,jenis="masuk",muatPeriode;
 (async()=>{const email=await sesiAdmin();if(!email){location.href="login.html";return}
  $("#who").textContent=email;$("#tTgl").value=hariIni();$("#flt").innerHTML=FILTER_HTML;
- ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();sinkron();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).subscribe(setRT);window.onBack=()=>{sinkron();load();muatPeriode();muatLog()}})();
+ ["q","fSt","fSa","fSo"].forEach(i=>$("#"+i).addEventListener("input",()=>{shown=40;render()}));muatPeriode=initPeriode($("#periode"));load();muatLog();sinkron();["lq","la"].forEach(i=>$("#"+i).addEventListener("input",tampilLog));sb.channel("adm").on("postgres_changes",{event:"*",schema:"public"},()=>{load();muatPeriode();muatLog()}).on("postgres_changes",{event:"INSERT",schema:"public",table:"transaksi"},p=>notifTrx(p.new)).subscribe(setRT);window.onBack=()=>{sinkron();load();muatPeriode();muatLog()}})();
 sb.auth.onAuthStateChange(e=>{if(e==="SIGNED_OUT")location.href="login.html"});
 $("#out").onclick=()=>{try{localStorage.removeItem(CK+"log")}catch(e){}sb.auth.signOut()};
 document.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>$("#"+b.dataset.x).hidden=true);
@@ -79,7 +79,7 @@ $("#cepat").onclick=()=>catat("","masuk");
 $("#ft").onsubmit=async e=>{e.preventDefault();const x=cekNis();if(!x)return toast("Santri tidak ditemukan. Periksa NIS.",1);const jumlah=parseNominal($("#tJml").value);if(!jumlah||isNaN(jumlah)||jumlah<=0)return toast("Jumlah tidak valid. Contoh: 10k atau 25000",1);
  if(jenis==="keluar"&&jumlah>Number(x.saldo))return toast("Saldo tidak cukup. Saldo saat ini "+rp(x.saldo),1);
  const trx={id:uid(),nis:x.nis,jenis,jumlah,tanggal:$("#tTgl").value,keterangan:$("#tKet").value.trim()||null},lbl=(jenis==="masuk"?"Setoran ":"Penarikan ")+rp(jumlah)+" untuk "+x.nama;
- $("#tBtn").disabled=true;
+ $("#tBtn").disabled=true;MILIK.add(trx.id);
  if(navigator.onLine){const{error}=await sb.from("transaksi").insert(trx);
   if(!error){$("#tBtn").disabled=false;$("#mT").hidden=true;toast(lbl+" tersimpan.");load();muatPeriode();return}
   if(!errJaringan(error)){$("#tBtn").disabled=false;return toast(error.message,1)}}
@@ -100,14 +100,14 @@ let sedangSinkron=false;
 async function sinkron(manual){if(sedangSinkron||!navigator.onLine||!obGet().length)return;sedangSinkron=true;let ok=0,gagal=0,putus=false;
  try{const{data:{session}={}}=await sb.auth.getSession();
   if(!session){if(manual)toast("Sesi login habis. Login ulang agar transaksi offline bisa dikirim.",1);return}
-  for(const it of obGet()){
+  for(const it of obGet()){MILIK.add(it.id);
    const{error}=await sb.from("transaksi").insert({id:it.id,nis:it.nis,jenis:it.jenis,jumlah:it.jumlah,tanggal:it.tanggal,keterangan:it.keterangan});
    if(!error||error.code==="23505"){obSet(obGet().filter(z=>z.id!==it.id));ok++}   // 23505 = sudah pernah terkirim
    else if(errJaringan(error)){putus=true;break}
    else{obSet(obGet().map(z=>z.id===it.id?{...z,err:error.message}:z));gagal++}}
  }catch(e){}finally{sedangSinkron=false}
- if(ok)toast(ok+" transaksi offline berhasil dikirim.");
- if(gagal)toast(gagal+" transaksi ditolak server. Periksa daftar menunggu sinkron.",1);
+ if(ok){toast(ok+" transaksi offline berhasil dikirim.");notif("Transaksi offline terkirim",ok+" transaksi berhasil disinkronkan ke server.")}
+ if(gagal){toast(gagal+" transaksi ditolak server. Periksa daftar menunggu sinkron.",1);notif("Transaksi ditolak server",gagal+" transaksi perlu diperiksa di daftar Menunggu sinkron.")}
  if(putus)toast("Koneksi terputus. Sisa transaksi akan dikirim nanti.",1);
  if(ok||gagal){await load();muatPeriode();muatLog()}}
 
